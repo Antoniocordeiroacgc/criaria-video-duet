@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 15% 8%;
+    --foreground: 210 20% 98%;
+    --card: 220 15% 12%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 15% 12%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 180 80% 50%;
+    --primary-foreground: 220 15% 8%;
+    --secondary: 220 15% 16%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 220 15% 16%;
+    --muted-foreground: 210 15% 65%;
+    --accent: 180 80% 50%;
+    --accent-foreground: 220 15% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 180 80% 50%;
+    --radius: 0.75rem;
+  }
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  font-family: "Outfit", sans-serif;
+  overflow-x: clip;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .timer-display {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+/* Shared UI elements and Layout adjustments */
+.main-content-wrapper {
+  padding-bottom: 6rem;
+}
+
+.fixed-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: hsl(var(--card) / 0.95);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid hsl(var(--border));
+  z-index: 50;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+/* Custom file input styling */
+.custom-file-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.custom-file-upload:active {
+  transform: scale(0.98);
+}
