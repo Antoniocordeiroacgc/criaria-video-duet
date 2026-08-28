@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Video, Square, Circle, Camera, CameraOff, Download, UploadCloud, CheckCircle2, Pause, Play } from 'lucide-react';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder.js';
 import { useDuetSubmission } from '@/hooks/useDuetSubmission.js';
 
-export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
+export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart }) {
   const videoRef = useRef(null);
   const {
     stream,
@@ -40,11 +39,20 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
   };
 
   const handleSendForComposition = () => {
-    if (!referenceFile) {
-      return; // o componente abaixo já mostra aviso quando não há vídeo de referência
-    }
-    submitDuet({ referenceFile, cameraBlob: recordedBlob, layout: 'top_bottom' });
+    if (!referenceFile) return;
+    // Para fotos: referenceFile é um array; para vídeo: é um File único
+    const files = Array.isArray(referenceFile) ? referenceFile : [referenceFile];
+    submitDuet({ referenceFiles: files, cameraBlob: recordedBlob, layout: 'top_bottom' });
   };
+
+  // Desligar câmera: para a gravação primeiro se estiver gravando, depois desliga
+  const handleStopCamera = () => {
+    if (isRecording) {
+      stopRecording();
+    }
+    stopCamera();
+  };
+
   useEffect(() => {
     if (videoRef.current && stream && isStreamReady) {
       videoRef.current.srcObject = stream;
@@ -76,7 +84,6 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
     }
   };
 
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -84,7 +91,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
       transition={{ duration: 0.5 }}
       className="w-full flex flex-col gap-4"
     >
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-border/50 shadow-lg">
+      <div className="relative w-full aspect-[9/16] max-h-[70vh] bg-black rounded-xl overflow-hidden border border-border/50 shadow-lg">
         {isStreamReady && stream ? (
           <video
             ref={videoRef}
@@ -99,7 +106,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
             <p className="text-muted-foreground text-sm font-medium">A câmera está desligada</p>
           </div>
         )}
-        
+
         {isRecording && !isPaused && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -142,9 +149,8 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
         </motion.div>
       )}
 
-      {/* Control Actions */}
       <div className="flex flex-col gap-4">
-        {/* State 1: No recorded blob yet */}
+        {/* Estado 1: Sem gravação ainda */}
         {!recordedBlob && (
           <div className="flex flex-wrap items-center justify-center gap-3">
             {!isStreamReady ? (
@@ -158,12 +164,12 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
               </Button>
             ) : (
               <>
+                {/* Botão desligar câmera — habilitado sempre, mesmo durante gravação */}
                 <Button
-                  onClick={stopCamera}
+                  onClick={handleStopCamera}
                   size="lg"
                   variant="secondary"
                   className="font-medium"
-                  disabled={isRecording}
                 >
                   <CameraOff className="w-5 h-5 mr-2" />
                   Desligar Câmera
@@ -171,7 +177,10 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
 
                 {!isRecording ? (
                   <Button
-                    onClick={startRecording}
+                    onClick={() => {
+                    onRecordingStart?.();
+                    startRecording();
+                  }}
                     size="lg"
                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold shadow-md"
                   >
@@ -207,9 +216,9 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
           </div>
         )}
 
-        {/* State 2: Blob generated after stopping recording */}
+        {/* Estado 2: Gravação concluída */}
         {recordedBlob && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="flex flex-col gap-4 p-5 bg-card border border-border shadow-sm rounded-xl"
@@ -233,7 +242,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile }) {
                 <Download className="w-5 h-5 mr-2" />
                 Baixar Vídeo Gravado
               </Button>
-              
+
               <Button
                 onClick={handleSendForComposition}
                 size="lg"

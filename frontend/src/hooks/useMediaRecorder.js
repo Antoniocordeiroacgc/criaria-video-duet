@@ -9,28 +9,38 @@ export function useMediaRecorder() {
   const [recordedBlob, setRecordedBlob] = useState(null);
   const [error, setError] = useState(null);
   const [isStreamReady, setIsStreamReady] = useState(false);
-  
+
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
   const totalPausedTimeRef = useRef(0);
   const pauseStartTimeRef = useRef(null);
+  const streamRef = useRef(null); // referência sempre atualizada do stream, sem causar re-render/loop
 
   const startCamera = useCallback(async () => {
     try {
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+        video: {
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+          aspectRatio: { ideal: 9 / 16 },
           facingMode: 'user'
         },
-        audio: true
+        audio: {
+          sampleRate: 44100,
+          sampleSize: 16,
+          channelCount: 2,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
       });
-      
+
       if (mediaStream.active && mediaStream.getTracks().length > 0) {
         setStream(mediaStream);
+        streamRef.current = mediaStream;
         setIsStreamReady(true);
         setRecordedBlob(null);
       } else {
@@ -54,6 +64,7 @@ export function useMediaRecorder() {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
+      streamRef.current = null;
       setIsStreamReady(false);
     }
     if (isRecording) {
@@ -61,14 +72,22 @@ export function useMediaRecorder() {
     }
   }, [stream, isRecording]);
 
+  // Efeito de desmontagem REAL: roda só quando o componente é destruído de
+  // verdade (array de dependências vazio). Usamos o ref em vez de chamar
+  // stopCamera() diretamente, porque stopCamera muda de identidade a cada
+  // render (depende de `stream`/`isRecording`) — se ele estivesse nas
+  // dependências aqui, o React rodaria essa limpeza a cada gravação iniciada,
+  // desligando a câmera no meio do processo (era exatamente o bug).
   useEffect(() => {
     return () => {
-      stopCamera();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
     };
-  }, [stopCamera]);
+  }, []);
 
   const startRecording = useCallback(() => {
     if (!stream || stream.getTracks().length === 0 || !isStreamReady) {
@@ -80,11 +99,22 @@ export function useMediaRecorder() {
     setRecordedBlob(null);
     setError(null);
 
-    let options = { mimeType: 'video/webm;codecs=vp8,opus' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-      options = { mimeType: 'video/webm' };
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: 'video/mp4' };
+    // Testa formatos em ordem de preferência de qualidade de áudio
+    const formats = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,pcm',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ];
+    // Testa formatos em ordem de preferência de qualidade de áudio
+    
+    let options = { mimeType: 'video/webm', audioBitsPerSecond: 256000 };
+    for (const fmt of formats) {
+      if (MediaRecorder.isTypeSupported(fmt)) {
+        options = { mimeType: fmt, audioBitsPerSecond: 256000 };
+        break;
       }
     }
 
@@ -97,7 +127,7 @@ export function useMediaRecorder() {
         setIsPaused(false);
         totalPausedTimeRef.current = 0;
         startTimeRef.current = Date.now();
-        
+
         timerRef.current = setInterval(() => {
           const now = Date.now();
           const elapsed = now - startTimeRef.current - totalPausedTimeRef.current;
@@ -126,7 +156,7 @@ export function useMediaRecorder() {
           totalPausedTimeRef.current += (Date.now() - pauseStartTimeRef.current);
           pauseStartTimeRef.current = null;
         }
-        
+
         timerRef.current = setInterval(() => {
           const now = Date.now();
           const elapsed = now - startTimeRef.current - totalPausedTimeRef.current;

@@ -1,10 +1,10 @@
 """
-Celery: fila assíncrona para processar vídeo fora do request HTTP.
-Por que isso é obrigatório aqui: composição de vídeo demora (segundos a
-minutos). Se rodasse dentro do request, o usuário ficaria com o app
-"travado" esperando resposta e você arriscaria timeout do load balancer.
+Celery worker — processa vídeo + vídeo OU fotos + vídeo em duet.
+Para fotos: converte cada imagem em vídeo com duração proporcional,
+concatena tudo e então faz o split-screen com o vídeo da câmera.
 """
 import logging
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -13,7 +13,7 @@ from celery import Celery
 from app.config import settings
 from app.models import SessionLocal, RenderJob, JobStatus
 from app.storage import download_to_file, upload_file
-from app.video_processor import compose_duet, FFmpegError
+from app.video_processor import compose_duet, probe_duration_seconds, FFmpegError
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,73 @@ celery_app.conf.update(
     result_serializer="json",
     accept_content=["json"],
     task_track_started=True,
-    worker_prefetch_multiplier=1,  # 1 vídeo pesado por worker por vez
+    worker_prefetch_multiplier=1,
     task_acks_late=True,
+    task_soft_time_limit=300,
+    task_time_limit=360,
 )
+
+
+def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: float) -> None:
+    """
+    Converte lista de fotos em vídeo.
+    Cada foto ocupa (total_duration / n_fotos) segundos.
+    """
+    n = len(photo_paths)
+    duration_each = total_duration / n
+    tmp_dir = Path(output_path).parent
+
+    if n == 1:
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", photo_paths[0],
+            "-t", str(total_duration),
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
+                   "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast",
+            "-pix_fmt", "yuv420p", "-r", "30",
+            output_path,
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise FFmpegError(result.stderr.decode()[-2000:])
+        return
+
+    # Múltiplas fotos: gera segmento por foto, depois concatena
+    segment_paths = []
+    for i, photo_path in enumerate(photo_paths):
+        seg = str(tmp_dir / f"seg_{i}.mp4")
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1", "-i", photo_path,
+            "-t", str(duration_each),
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
+                   "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast",
+            "-pix_fmt", "yuv420p", "-r", "30",
+            seg,
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise FFmpegError(result.stderr.decode()[-2000:])
+        segment_paths.append(seg)
+
+    # Arquivo de lista para concat
+    list_file = str(tmp_dir / "concat_list.txt")
+    with open(list_file, "w") as f:
+        for seg in segment_paths:
+            f.write(f"file '{seg}'\n")
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", list_file,
+        "-c", "copy",
+        output_path,
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise FFmpegError(result.stderr.decode()[-2000:])
 
 
 @celery_app.task(name="process_duet_job", bind=True, max_retries=1)
@@ -43,25 +107,56 @@ def process_duet_job(self, job_id: str):
 
     with tempfile.TemporaryDirectory(prefix=f"duet_{job_id}_") as tmp:
         tmp_path = Path(tmp)
-        ref_local = str(tmp_path / "reference.mp4")
         cam_local = str(tmp_path / "camera.webm")
         out_local = str(tmp_path / "output.mp4")
+        ref_for_compose = str(tmp_path / "reference_final.mp4")
 
         try:
-            download_to_file(job.reference_video_key, ref_local)
+            # Download do vídeo da câmera
             download_to_file(job.camera_video_key, cam_local)
+            job.progress_pct = 20
+            db.commit()
+
+            # Obtém as chaves de referência
+            ref_keys = (
+                job.reference_keys_json.split(",")
+                if job.reference_keys_json
+                else [job.reference_video_key]
+            )
+
+            # Download dos arquivos de referência
+            ref_local_paths = []
+            for i, key in enumerate(ref_keys):
+                ext = key.split(".")[-1]
+                local = str(tmp_path / f"ref_{i}.{ext}")
+                download_to_file(key, local)
+                ref_local_paths.append(local)
+
             job.progress_pct = 40
             db.commit()
 
+            # Se for foto(s): converte para vídeo com duração da câmera
+            is_photo = getattr(job, 'reference_type', 'video') == "image"
+            if is_photo:
+                cam_duration = probe_duration_seconds(cam_local)
+                _photos_to_video(ref_local_paths, ref_for_compose, cam_duration)
+            else:
+                ref_for_compose = ref_local_paths[0]
+
+            job.progress_pct = 60
+            db.commit()
+
+            # Composição do duet
             compose_duet(
-                reference_path=ref_local,
+                reference_path=ref_for_compose,
                 camera_path=cam_local,
                 output_path=out_local,
                 layout=job.layout.value if hasattr(job.layout, "value") else job.layout,
             )
-            job.progress_pct = 80
+            job.progress_pct = 85
             db.commit()
 
+            # Upload do resultado
             output_key = f"outputs/{job_id}/final.mp4"
             upload_file(out_local, output_key, content_type="video/mp4")
 
@@ -71,11 +166,11 @@ def process_duet_job(self, job_id: str):
             db.commit()
 
         except FFmpegError as e:
-            logger.exception("Falha de FFmpeg no job %s", job_id)
+            logger.exception("Falha FFmpeg no job %s", job_id)
             job.status = JobStatus.FAILED
             job.error_message = f"Erro ao processar vídeo: {e}"
             db.commit()
-        except Exception as e:
+        except Exception:
             logger.exception("Erro inesperado no job %s", job_id)
             job.status = JobStatus.FAILED
             job.error_message = "Erro interno ao processar o vídeo."

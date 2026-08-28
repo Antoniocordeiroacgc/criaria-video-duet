@@ -1,33 +1,18 @@
 """
 Motor de composição de vídeo: junta o vídeo de referência + vídeo da câmera
 em um único MP4 split-screen, com marca d'água da CRIAR.IA TECNOLOGIA.
-
-Por que FFmpeg via subprocess e não uma lib Python "wrapper":
-  - Controle total sobre o filtergraph (escala, crop, overlay, watermark)
-  - Performance: roda em C, usa hardware encoding se disponível
-  - É o padrão de mercado (TikTok, CapCut server-side, etc. usam FFmpeg)
-
-Estratégia de filtergraph:
-  1. Escala cada vídeo de entrada para a MESMA largura (ex.: 1080px),
-     preservando aspect ratio e cropando o excesso (cover, não letterbox).
-  2. Empilha (vstack) ou lado a lado (hstack) os dois vídeos.
-  3. Sincroniza áudio: usamos APENAS o áudio do vídeo da câmera (reação do
-     usuário), pois é o que importa socialmente. Se quiser mixar os dois
-     áudios, há uma variante comentada abaixo.
-  4. Aplica marca d'água de texto (drawtext) fixa no canto inferior.
-  5. Re-encoda em H.264 + AAC, compatível com Instagram/TikTok/WhatsApp.
 """
 import subprocess
 import logging
+import tempfile
 from pathlib import Path
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Resolução de saída por lado (cada metade da tela)
 TARGET_WIDTH = 1080
-TARGET_HEIGHT_HALF = 960  # 1080x1920 final dividido em duas metades de 960 (top_bottom)
+TARGET_HEIGHT_HALF = 960
 
 
 class FFmpegError(Exception):
@@ -48,7 +33,6 @@ def _run_ffmpeg(cmd: list[str]) -> None:
 
 
 def probe_duration_seconds(input_path: str) -> float:
-    """Usa ffprobe para checar duração — usado para validar limites (anti-abuso)."""
     cmd = [
         "ffprobe", "-v", "error",
         "-show_entries", "format=duration",
@@ -61,6 +45,27 @@ def probe_duration_seconds(input_path: str) -> float:
     return float(result.stdout.strip())
 
 
+def _fix_audio(input_path: str) -> str:
+    """
+    Pré-converte o áudio do WebM (Opus) para um WAV limpo antes da composição.
+    Isso evita artefatos de decodificação do Opus direto para AAC que causam
+    distorção no áudio final.
+    Retorna o caminho do arquivo WAV temporário criado.
+    """
+    tmp_wav = input_path.replace(".webm", "_fixed.wav").replace(".mp4", "_fixed.wav")
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-vn",                  # sem vídeo
+        "-acodec", "pcm_s16le", # WAV sem compressão (PCM)
+        "-ar", "44100",         # resample para 44100Hz
+        "-ac", "2",             # stereo
+        tmp_wav,
+    ]
+    _run_ffmpeg(cmd)
+    return tmp_wav
+
+
 def compose_duet(
     reference_path: str,
     camera_path: str,
@@ -68,20 +73,13 @@ def compose_duet(
     layout: str = "top_bottom",
     watermark_text: str | None = None,
 ) -> None:
-    """
-    Compõe o vídeo final de duet.
-
-    layout:
-      - "top_bottom": referência em cima, câmera embaixo (formato vertical 9:16,
-        ideal para Reels/TikTok/Stories)
-      - "side_by_side": lado a lado (formato horizontal 16:9)
-    """
     watermark_text = watermark_text or settings.WATERMARK_TEXT
-    # Escapa caracteres especiais do drawtext do FFmpeg
     safe_watermark = watermark_text.replace(":", "\\:").replace("'", "\\'")
 
+    # Pré-converte o áudio da câmera para WAV limpo antes de encodar
+    fixed_audio_path = _fix_audio(camera_path)
+
     if layout == "top_bottom":
-        # Saída final: 1080x1920 (vertical), cada vídeo ocupa 1080x960
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
         filter_complex = (
             f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
@@ -94,7 +92,6 @@ def compose_duet(
             f"x=(w-text_w)/2:y=h-th-30[final_v]"
         )
     elif layout == "side_by_side":
-        # Saída final: 1920x1080 (horizontal), cada vídeo ocupa 960x1080
         w, h = 960, 1080
         filter_complex = (
             f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
@@ -111,34 +108,32 @@ def compose_duet(
 
     cmd = [
         "ffmpeg", "-y",
-        "-i", reference_path,
-        "-i", camera_path,
+        "-i", reference_path,   # input 0: vídeo de referência
+        "-i", camera_path,      # input 1: vídeo da câmera (para o vídeo)
+        "-i", fixed_audio_path, # input 2: áudio da câmera já convertido (limpo)
         "-filter_complex", filter_complex,
         "-map", "[final_v]",
-        # Áudio: usa o áudio do vídeo da câmera (input 1 = reação do usuário)
-        "-map", "1:a?",
+        "-map", "2:a",          # usa o áudio pré-convertido (WAV limpo)
         "-c:v", "libx264",
-        "-preset", "veryfast",     # bom equilíbrio velocidade/tamanho para servidor sem GPU
-        "-crf", "23",              # qualidade visual (menor = melhor, 18-28 é a faixa útil)
-        "-pix_fmt", "yuv420p",     # compatibilidade máxima (iOS/Android/redes sociais)
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac",
+        "-ar", "44100",
+        "-ac", "2",
         "-b:a", "128k",
-        "-movflags", "+faststart", # permite tocar o vídeo antes do download completo
-        "-shortest",               # corta no vídeo mais curto dos dois
+        "-movflags", "+faststart",
+        "-shortest",
         output_path,
     ]
 
     _run_ffmpeg(cmd)
 
+    # Limpa o WAV temporário
+    try:
+        Path(fixed_audio_path).unlink()
+    except Exception:
+        pass
+
     if not Path(output_path).exists() or Path(output_path).stat().st_size == 0:
         raise FFmpegError("Arquivo de saída não foi gerado ou está vazio.")
-
-
-# --- Variante alternativa: mixar os dois áudios (referência + câmera) ---
-# Troque o bloco de mapeamento de áudio por isto, se quiser ouvir ambos:
-#
-#   filter_complex += (
-#       ";[0:a]volume=0.4[a0];[1:a]volume=1.0[a1];"
-#       "[a0][a1]amix=inputs=2:duration=shortest[final_a]"
-#   )
-#   cmd = [..., "-map", "[final_v]", "-map", "[final_a]", ...]  # sem "-map 1:a?"

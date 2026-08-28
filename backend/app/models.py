@@ -1,12 +1,8 @@
-"""
-Modelos de banco de dados (SQLAlchemy 2.0).
-Apenas metadados de jobs — os arquivos de vídeo em si vivem no object storage.
-"""
 import enum
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import String, Enum, DateTime, Text, create_engine
+from sqlalchemy import String, Enum, DateTime, Text, Integer, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from app.config import settings
@@ -36,7 +32,15 @@ class RenderJob(Base):
     status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.PENDING, index=True)
     layout: Mapped[Layout] = mapped_column(Enum(Layout), default=Layout.TOP_BOTTOM)
 
+    # Tipo de referência: 'video' ou 'image'
+    reference_type: Mapped[str] = mapped_column(String(10), default="video")
+    reference_count: Mapped[int] = mapped_column(Integer, default=1)
+
+    # Chave do primeiro arquivo de referência (compatibilidade)
     reference_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Todas as chaves separadas por vírgula (para carrossel de fotos)
+    reference_keys_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     camera_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     output_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
@@ -44,9 +48,7 @@ class RenderJob(Base):
     progress_pct: Mapped[int] = mapped_column(default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
-    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     expires_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.utcnow() + timedelta(hours=settings.JOB_RETENTION_HOURS)
     )

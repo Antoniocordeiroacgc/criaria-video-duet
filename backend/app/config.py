@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = Field(default="criaria-video-duet")
     S3_REGION: str = Field(default="auto")
     S3_PUBLIC_BASE_URL: str = Field(default="")  # CDN/domínio público do bucket
+    S3_FORCE_PATH_STYLE: bool = Field(default=False)  # True para MinIO (storage local de dev)
+    S3_PUBLIC_ENDPOINT_URL: str = Field(default="")  # endpoint acessível pelo navegador (ex.: http://localhost:9000), usado só para gerar links de download
 
     # --- Marca d'água ---
     WATERMARK_TEXT: str = Field(default="CRIAR.IA TECNOLOGIA | criarhub.com")

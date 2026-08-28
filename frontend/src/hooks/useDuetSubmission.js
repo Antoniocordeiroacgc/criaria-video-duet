@@ -2,13 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-/**
- * Hook que substitui o "Simular Upload": envia o vídeo de referência + o
- * vídeo gravado da câmera para o backend, e faz polling do status até
- * o FFmpeg terminar a composição.
- */
 export function useDuetSubmission() {
-  const [status, setStatus] = useState('idle'); // idle | uploading | processing | done | error
+  const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState(0);
   const [jobId, setJobId] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
@@ -25,7 +20,9 @@ export function useDuetSubmission() {
   const pollStatus = useCallback((id) => {
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/jobs/${id}`);
+        const res = await fetch(`${API_BASE_URL}/jobs/${id}`, {
+          headers: { 'ngrok-skip-browser-warning': 'true' },
+        });
         if (!res.ok) throw new Error('Falha ao consultar status do job.');
         const data = await res.json();
 
@@ -33,9 +30,7 @@ export function useDuetSubmission() {
 
         if (data.status === 'done') {
           stopPolling();
-          const dlRes = await fetch(`${API_BASE_URL}/jobs/${id}/download`);
-          const dlData = await dlRes.json();
-          setDownloadUrl(dlData.download_url);
+          setDownloadUrl(`${API_BASE_URL}/jobs/${id}/file`);
           setStatus('done');
         } else if (data.status === 'failed') {
           stopPolling();
@@ -49,10 +44,10 @@ export function useDuetSubmission() {
         setErrorMessage(err.message);
         setStatus('error');
       }
-    }, 2000); // polling a cada 2s — suficiente para vídeos curtos, sem sobrecarregar a API
+    }, 2000);
   }, [stopPolling]);
 
-  const submitDuet = useCallback(async ({ referenceFile, cameraBlob, layout = 'top_bottom' }) => {
+  const submitDuet = useCallback(async ({ referenceFiles, cameraBlob, layout = 'top_bottom' }) => {
     setStatus('uploading');
     setProgress(0);
     setErrorMessage(null);
@@ -60,22 +55,31 @@ export function useDuetSubmission() {
 
     try {
       const formData = new FormData();
-      formData.append('reference_video', referenceFile, referenceFile.name || 'reference.mp4');
+
+      const [firstFile, ...extraFiles] = referenceFiles;
+      const firstName = firstFile.name || 'reference_0';
+      formData.append('reference_video', firstFile, firstName);
+
+      extraFiles.forEach((file, i) => {
+        formData.append('reference_photos', file, file.name || `photo_${i + 1}`);
+      });
+
       formData.append(
         'camera_video',
         cameraBlob,
-        `camera-${Date.now()}.${cameraBlob.type.includes('webm') ? 'webm' : 'mp4'}`
+        `camera-${Date.now()}.${cameraBlob.type?.includes('webm') ? 'webm' : 'mp4'}`
       );
       formData.append('layout', layout);
 
       const res = await fetch(`${API_BASE_URL}/jobs`, {
         method: 'POST',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
         body: formData,
       });
 
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.detail || 'Falha ao enviar vídeos para o servidor.');
+        throw new Error(errBody.detail || 'Falha ao enviar arquivos para o servidor.');
       }
 
       const data = await res.json();
