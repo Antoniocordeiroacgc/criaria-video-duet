@@ -24,9 +24,11 @@ app = FastAPI(title=settings.APP_NAME)
 # CORS: ajuste allow_origins para o domínio real em produção (não usar "*" com credentials)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO produção: ["https://criarhub.com", "https://app.criarhub.com"]
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    max_age=86400,
 )
 
 app.include_router(upload.router)
