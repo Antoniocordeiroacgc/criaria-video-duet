@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://web-production-dae907.up.railway.app';
+const API_BASE_URL = '/api';
 
 export function useDuetSubmission() {
   const [status, setStatus] = useState('idle');
