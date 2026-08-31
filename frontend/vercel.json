@@ -1,4 +1,5 @@
 {
+  "outputDirectory": "../../dist/apps/web",
   "rewrites": [
     {
       "source": "/api/:path*",
