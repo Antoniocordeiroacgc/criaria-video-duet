@@ -111,9 +111,13 @@ def compose_duet(
 
     fixed_audio_path = _fix_audio(camera_path)
 
-    # Pré-converte o vídeo de referência para MP4 limpo (resolve bugs de 90000fps e outros)
-    ref_converted = reference_path.replace(".mp4", "_conv.mp4").replace(".webm", "_conv.mp4").replace(".mov", "_conv.mp4")
+    # Pré-converte o vídeo de referência para MP4 limpo
+    ref_converted = str(Path(output_path).parent / "ref_conv.mp4")
     _convert_to_mp4(reference_path, ref_converted)
+
+    # Pré-converte o vídeo da câmera para MP4 limpo (resolve VP9/WebM com 90000fps)
+    cam_converted = str(Path(output_path).parent / "cam_conv.mp4")
+    _convert_to_mp4(camera_path, cam_converted)
 
     if layout == "top_bottom":
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
@@ -145,7 +149,7 @@ def compose_duet(
     cmd = [
         "ffmpeg", "-y",
         "-i", ref_converted,
-        "-i", camera_path,
+        "-i", cam_converted,
         "-i", fixed_audio_path,
         "-filter_complex", filter_complex,
         "-map", "[final_v]",
