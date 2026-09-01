@@ -116,10 +116,10 @@ def compose_duet(
             f"fontcolor=white:fontsize=28:box=1:boxcolor=black@0.45:boxborderw=10:"
             f"x=(w-text_w)/2:y=h-th-30[final_v]"
         )
-    else:
+        else:
         raise ValueError(f"Layout inválido: {layout}")
 
-        cmd = [
+    cmd = [
         "ffmpeg", "-y",
         "-r", "30",                # força 30fps no input de referência
         "-i", reference_path,
