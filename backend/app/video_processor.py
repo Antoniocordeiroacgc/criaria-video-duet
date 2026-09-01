@@ -109,11 +109,7 @@ def compose_duet(
     watermark_text = watermark_text or settings.WATERMARK_TEXT
     safe_watermark = watermark_text.replace(":", "\\:").replace("'", "\\'")
 
-        fixed_audio_path = _fix_audio(camera_path)
-
-    # Pré-converte o vídeo da câmera para MP4 limpo
-    cam_converted = camera_path.replace(".webm", "_conv.mp4").replace(".mp4", "_conv.mp4")
-    _convert_to_mp4(camera_path, cam_converted)
+    fixed_audio_path = _fix_audio(camera_path)
 
     # Pré-converte o vídeo de referência para MP4 limpo (resolve bugs de 90000fps e outros)
     ref_converted = reference_path.replace(".mp4", "_conv.mp4").replace(".webm", "_conv.mp4").replace(".mov", "_conv.mp4")
@@ -149,7 +145,7 @@ def compose_duet(
     cmd = [
         "ffmpeg", "-y",
         "-i", ref_converted,
-        "-i", cam_converted,
+        "-i", camera_path,
         "-i", fixed_audio_path,
         "-filter_complex", filter_complex,
         "-map", "[final_v]",
