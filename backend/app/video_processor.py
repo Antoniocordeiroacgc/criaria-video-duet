@@ -80,6 +80,25 @@ def _fix_audio(input_path: str) -> str:
     return tmp_wav
 
 
+def _convert_to_mp4(input_path: str, output_path: str) -> None:
+    """Converte qualquer vídeo para MP4 H264 limpo antes da composição."""
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-pix_fmt", "yuv420p",
+        "-r", "30",
+        "-c:a", "aac",
+        "-ar", "44100",
+        "-ac", "2",
+        "-movflags", "+faststart",
+        output_path,
+    ]
+    _run_ffmpeg(cmd)
+
+
 def compose_duet(
     reference_path: str,
     camera_path: str,
@@ -91,6 +110,10 @@ def compose_duet(
     safe_watermark = watermark_text.replace(":", "\\:").replace("'", "\\'")
 
     fixed_audio_path = _fix_audio(camera_path)
+
+    # Pré-converte o vídeo de referência para MP4 limpo (resolve bugs de 90000fps e outros)
+    ref_converted = reference_path.replace(".mp4", "_conv.mp4").replace(".webm", "_conv.mp4").replace(".mov", "_conv.mp4")
+    _convert_to_mp4(reference_path, ref_converted)
 
     if layout == "top_bottom":
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
@@ -121,7 +144,7 @@ def compose_duet(
 
     cmd = [
         "ffmpeg", "-y",
-        "-i", reference_path,
+        "-i", ref_converted,
         "-i", camera_path,
         "-i", fixed_audio_path,
         "-filter_complex", filter_complex,
