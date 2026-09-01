@@ -100,15 +100,14 @@ def compose_duet(
 
     # Pré-converte o áudio da câmera para WAV limpo antes de encodar
     fixed_audio_path = _fix_audio(camera_path)
-
-    if layout == "top_bottom":
+        if layout == "top_bottom":
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
-                filter_complex = (
+        filter_complex = (
             f"[0:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
-            f"crop={w}:{h},setsar=1[left];"
+            f"crop={w}:{h},setsar=1[top];"
             f"[1:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
-            f"crop={w}:{h},setsar=1[right];"
-            f"[left][right]hstack=inputs=2[stacked];"
+            f"crop={w}:{h},setsar=1[bottom];"
+            f"[top][bottom]vstack=inputs=2[stacked];"
             f"[stacked]drawtext=text='{safe_watermark}':"
             f"fontcolor=white:fontsize=28:box=1:boxcolor=black@0.45:boxborderw=10:"
             f"x=(w-text_w)/2:y=h-th-30[final_v]"
