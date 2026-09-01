@@ -119,8 +119,9 @@ def compose_duet(
     else:
         raise ValueError(f"Layout inválido: {layout}")
 
-    cmd = [
+        cmd = [
         "ffmpeg", "-y",
+        "-r", "30",                # força 30fps no input de referência
         "-i", reference_path,
         "-i", camera_path,
         "-i", fixed_audio_path,
