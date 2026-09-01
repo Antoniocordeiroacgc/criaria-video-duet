@@ -31,10 +31,6 @@ celery_app.conf.update(
 
 
 def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: float) -> None:
-    """
-    Converte lista de fotos em vídeo.
-    Cada foto ocupa (total_duration / n_fotos) segundos.
-    """
     n = len(photo_paths)
     duration_each = total_duration / n
     tmp_dir = Path(output_path).parent
@@ -42,12 +38,15 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
     if n == 1:
         cmd = [
             "ffmpeg", "-y",
-            "-loop", "1", "-i", photo_paths[0],
+            "-loop", "1",
+            "-framerate", "30",
+            "-i", photo_paths[0],
+            "-r", "30",
             "-t", str(total_duration),
             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
             "-c:v", "libx264", "-preset", "veryfast",
-            "-pix_fmt", "yuv420p", "-r", "30",
+            "-pix_fmt", "yuv420p",
             output_path,
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -55,18 +54,20 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
             raise FFmpegError(result.stderr.decode()[-2000:])
         return
 
-    # Múltiplas fotos: gera segmento por foto, depois concatena
     segment_paths = []
     for i, photo_path in enumerate(photo_paths):
         seg = str(tmp_dir / f"seg_{i}.mp4")
         cmd = [
             "ffmpeg", "-y",
-            "-loop", "1", "-i", photo_path,
+            "-loop", "1",
+            "-framerate", "30",
+            "-i", photo_path,
+            "-r", "30",
             "-t", str(duration_each),
             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
             "-c:v", "libx264", "-preset", "veryfast",
-            "-pix_fmt", "yuv420p", "-r", "30",
+            "-pix_fmt", "yuv420p",
             seg,
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -74,7 +75,6 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
             raise FFmpegError(result.stderr.decode()[-2000:])
         segment_paths.append(seg)
 
-    # Arquivo de lista para concat
     list_file = str(tmp_dir / "concat_list.txt")
     with open(list_file, "w") as f:
         for seg in segment_paths:
@@ -90,7 +90,6 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         raise FFmpegError(result.stderr.decode()[-2000:])
-
 
 @celery_app.task(name="process_duet_job", bind=True, max_retries=1)
 def process_duet_job(self, job_id: str):
