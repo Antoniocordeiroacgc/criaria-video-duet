@@ -131,6 +131,8 @@ def compose_duet(
         "-preset", "veryfast",
         "-crf", "23",
         "-pix_fmt", "yuv420p",
+        "-r", "30",
+        "-vsync", "cfr",
         "-c:a", "aac",
         "-ar", "44100",
         "-ac", "2",
