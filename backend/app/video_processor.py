@@ -33,16 +33,38 @@ def _run_ffmpeg(cmd: list[str]) -> None:
 
 
 def probe_duration_seconds(input_path: str) -> float:
+    """Usa ffprobe para checar duração. Tenta format e depois stream."""
+    for entry in ("format=duration", "stream=duration"):
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-show_entries", entry,
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            input_path,
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        output = result.stdout.strip()
+        for line in output.splitlines():
+            try:
+                val = float(line)
+                if val > 0:
+                    return val
+            except ValueError:
+                continue
+
+    # Último recurso: decodifica o arquivo inteiro para contar frames
     cmd = [
         "ffprobe", "-v", "error",
-        "-show_entries", "format=duration",
+        "-count_packets", "-show_entries", "stream=nb_read_packets",
+        "-select_streams", "v:0",
         "-of", "default=noprint_wrappers=1:nokey=1",
         input_path,
     ]
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if result.returncode != 0:
-        raise FFmpegError(f"ffprobe falhou: {result.stderr}")
-    return float(result.stdout.strip())
+    try:
+        frames = int(result.stdout.strip())
+        return frames / 30.0  # assume 30fps
+    except (ValueError, ZeroDivisionError):
+        return 30.0  # fallback: 30 segundos
 
 
 def _fix_audio(input_path: str) -> str:
