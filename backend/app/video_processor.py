@@ -104,7 +104,7 @@ def compose_duet(
     if layout == "top_bottom":
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
         filter_complex = (
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[0:v]scale='min(1080,iw)':-2,scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[top];"
             f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[bottom];"
@@ -116,9 +116,9 @@ def compose_duet(
     elif layout == "side_by_side":
         w, h = 960, 1080
         filter_complex = (
-            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[0:v]scale=-2:'min({h},ih)',scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[left];"
-            f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[1:v]scale=-2:'min({h},ih)',scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[right];"
             f"[left][right]hstack=inputs=2[stacked];"
             f"[stacked]drawtext=text='{safe_watermark}':"
