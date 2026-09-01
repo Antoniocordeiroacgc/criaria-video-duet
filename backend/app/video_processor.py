@@ -4,7 +4,6 @@ em um único MP4 split-screen, com marca d'água da CRIAR.IA TECNOLOGIA.
 """
 import subprocess
 import logging
-import tempfile
 from pathlib import Path
 
 from app.config import settings
@@ -51,7 +50,6 @@ def probe_duration_seconds(input_path: str) -> float:
             except ValueError:
                 continue
 
-    # Último recurso: decodifica o arquivo inteiro para contar frames
     cmd = [
         "ffprobe", "-v", "error",
         "-count_packets", "-show_entries", "stream=nb_read_packets",
@@ -62,26 +60,20 @@ def probe_duration_seconds(input_path: str) -> float:
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         frames = int(result.stdout.strip())
-        return frames / 30.0  # assume 30fps
+        return frames / 30.0
     except (ValueError, ZeroDivisionError):
-        return 30.0  # fallback: 30 segundos
+        return 30.0
 
 
 def _fix_audio(input_path: str) -> str:
-    """
-    Pré-converte o áudio do WebM (Opus) para um WAV limpo antes da composição.
-    Isso evita artefatos de decodificação do Opus direto para AAC que causam
-    distorção no áudio final.
-    Retorna o caminho do arquivo WAV temporário criado.
-    """
     tmp_wav = input_path.replace(".webm", "_fixed.wav").replace(".mp4", "_fixed.wav")
     cmd = [
         "ffmpeg", "-y",
         "-i", input_path,
-        "-vn",                  # sem vídeo
-        "-acodec", "pcm_s16le", # WAV sem compressão (PCM)
-        "-ar", "44100",         # resample para 44100Hz
-        "-ac", "2",             # stereo
+        "-vn",
+        "-acodec", "pcm_s16le",
+        "-ar", "44100",
+        "-ac", "2",
         tmp_wav,
     ]
     _run_ffmpeg(cmd)
@@ -98,9 +90,9 @@ def compose_duet(
     watermark_text = watermark_text or settings.WATERMARK_TEXT
     safe_watermark = watermark_text.replace(":", "\\:").replace("'", "\\'")
 
-    # Pré-converte o áudio da câmera para WAV limpo antes de encodar
     fixed_audio_path = _fix_audio(camera_path)
-        if layout == "top_bottom":
+
+    if layout == "top_bottom":
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
         filter_complex = (
             f"[0:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
@@ -114,7 +106,7 @@ def compose_duet(
         )
     elif layout == "side_by_side":
         w, h = 960, 1080
-                filter_complex = (
+        filter_complex = (
             f"[0:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[left];"
             f"[1:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
@@ -129,12 +121,12 @@ def compose_duet(
 
     cmd = [
         "ffmpeg", "-y",
-        "-i", reference_path,   # input 0: vídeo de referência
-        "-i", camera_path,      # input 1: vídeo da câmera (para o vídeo)
-        "-i", fixed_audio_path, # input 2: áudio da câmera já convertido (limpo)
+        "-i", reference_path,
+        "-i", camera_path,
+        "-i", fixed_audio_path,
         "-filter_complex", filter_complex,
         "-map", "[final_v]",
-        "-map", "2:a",          # usa o áudio pré-convertido (WAV limpo)
+        "-map", "2:a",
         "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "23",
@@ -150,7 +142,6 @@ def compose_duet(
 
     _run_ffmpeg(cmd)
 
-    # Limpa o WAV temporário
     try:
         Path(fixed_audio_path).unlink()
     except Exception:
