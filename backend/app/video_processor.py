@@ -2,6 +2,7 @@
 Motor de composição de vídeo: junta o vídeo de referência + vídeo da câmera
 em um único MP4 split-screen, com marca d'água da CRIAR.IA TECNOLOGIA.
 """
+import os
 import subprocess
 import logging
 from pathlib import Path
@@ -18,7 +19,7 @@ class FFmpegError(Exception):
     pass
 
 
-def _run_ffmpeg(cmd: list[str]) -> None:
+def _run_ffmpeg(cmd: list[str], check_frames: bool = False) -> None:
     logger.info("Executando FFmpeg: %s", " ".join(cmd))
     result = subprocess.run(
         cmd,
@@ -28,13 +29,16 @@ def _run_ffmpeg(cmd: list[str]) -> None:
     )
     if result.returncode != 0:
         stderr = result.stderr
-        # FFmpeg retorna código != 0 mesmo quando processa com sucesso
-        # Só falha de verdade se não há progresso (frame=0) ou erro crítico
-        if "frame=    0" in stderr and "time=N/A" in stderr:
-            logger.error("FFmpeg falhou sem progresso: %s", stderr[-4000:])
-            raise FFmpegError(stderr[-2000:])
-        # Se processou frames, considera sucesso
-        logger.warning("FFmpeg retornou código %s mas processou frames", result.returncode)
+        if check_frames:
+            # Só falha se não processou nenhum frame
+            if "frame=    0" in stderr and "time=N/A" in stderr:
+                logger.error("FFmpeg falhou sem progresso: %s", stderr[-4000:])
+                raise FFmpegError(stderr[-2000:])
+            logger.warning("FFmpeg retornou código %s mas processou frames", result.returncode)
+        else:
+            logger.error("FFmpeg falhou (code=%s): %s", result.returncode, result.stderr[-4000:])
+            raise FFmpegError(result.stderr[-2000:])
+
 
 def probe_duration_seconds(input_path: str) -> float:
     for entry in ("format=duration", "stream=duration"):
@@ -53,11 +57,7 @@ def probe_duration_seconds(input_path: str) -> float:
                     return val
             except ValueError:
                 continue
-    try:
-        frames = int(result.stdout.strip())
-        return frames / 30.0
-    except (ValueError, ZeroDivisionError):
-        return 30.0
+    return 30.0
 
 
 def _fix_audio(input_path: str) -> str:
@@ -158,7 +158,25 @@ def compose_duet(
         output_path,
     ]
 
-    _run_ffmpeg(cmd)
+    _run_ffmpeg(cmd, check_frames=True)
+
+    # Remux para garantir MP4 bem formado e reproduzível
+    fixed_output = output_path.replace(".mp4", "_remux.mp4")
+    remux_cmd = [
+        "ffmpeg", "-y",
+        "-threads", "2",
+        "-i", output_path,
+        "-c", "copy",
+        "-movflags", "+faststart",
+        fixed_output,
+    ]
+    try:
+        _run_ffmpeg(remux_cmd)
+        if Path(fixed_output).exists() and Path(fixed_output).stat().st_size > 0:
+            os.replace(fixed_output, output_path)
+            logger.info("Remux concluído com sucesso")
+    except Exception as e:
+        logger.warning("Remux falhou, usando arquivo original: %s", e)
 
     try:
         Path(fixed_audio_path).unlink()
