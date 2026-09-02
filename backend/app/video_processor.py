@@ -83,9 +83,9 @@ def _fix_audio(input_path: str) -> str:
 def _convert_to_mp4(input_path: str, output_path: str) -> None:
     """Converte qualquer vídeo para MP4 H264 limpo antes da composição."""
     cmd = [
-        "ffmpeg", "-y",
+       "ffmpeg", "-y",
+        "-threads", "2",
         "-i", input_path,
-        "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "23",
         "-pix_fmt", "yuv420p",
@@ -140,8 +140,9 @@ def compose_duet(
     else:
         raise ValueError(f"Layout inválido: {layout}")
 
-    cmd = [
+        cmd = [
         "ffmpeg", "-y",
+        "-threads", "2",
         "-i", ref_converted,
         "-i", cam_converted,
         "-i", fixed_audio_path,
@@ -153,6 +154,7 @@ def compose_duet(
         "-crf", "23",
         "-pix_fmt", "yuv420p",
         "-r", "30",
+        "-threads", "2",
         "-max_muxing_queue_size", "9999",
         "-c:a", "aac",
         "-ar", "44100",
