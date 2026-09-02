@@ -122,9 +122,9 @@ def compose_duet(
     if layout == "top_bottom":
         w, h = TARGET_WIDTH, TARGET_HEIGHT_HALF
         filter_complex = (
-            f"[0:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[top];"
-            f"[1:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[bottom];"
             f"[top][bottom]vstack=inputs=2[stacked];"
             f"[stacked]drawtext=text='{safe_watermark}':"
@@ -134,9 +134,9 @@ def compose_duet(
     elif layout == "side_by_side":
         w, h = 960, 1080
         filter_complex = (
-            f"[0:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[0:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[left];"
-            f"[1:v]fps=30,scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[right];"
             f"[left][right]hstack=inputs=2[stacked];"
             f"[stacked]drawtext=text='{safe_watermark}':"
@@ -159,7 +159,7 @@ def compose_duet(
         "-crf", "23",
         "-pix_fmt", "yuv420p",
         "-r", "30",
-        "-vsync", "cfr",
+        "-max_muxing_queue_size", "9999",
         "-c:a", "aac",
         "-ar", "44100",
         "-ac", "2",
