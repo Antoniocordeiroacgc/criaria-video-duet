@@ -32,7 +32,6 @@ def _run_ffmpeg(cmd: list[str]) -> None:
 
 
 def probe_duration_seconds(input_path: str) -> float:
-    """Usa ffprobe para checar duração. Tenta format e depois stream."""
     for entry in ("format=duration", "stream=duration"):
         cmd = [
             "ffprobe", "-v", "error",
@@ -49,15 +48,6 @@ def probe_duration_seconds(input_path: str) -> float:
                     return val
             except ValueError:
                 continue
-
-    cmd = [
-        "ffprobe", "-v", "error",
-        "-count_packets", "-show_entries", "stream=nb_read_packets",
-        "-select_streams", "v:0",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        input_path,
-    ]
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         frames = int(result.stdout.strip())
         return frames / 30.0
@@ -69,6 +59,7 @@ def _fix_audio(input_path: str) -> str:
     tmp_wav = input_path.replace(".webm", "_fixed.wav").replace(".mp4", "_fixed.wav")
     cmd = [
         "ffmpeg", "-y",
+        "-threads", "2",
         "-i", input_path,
         "-vn",
         "-acodec", "pcm_s16le",
@@ -81,11 +72,11 @@ def _fix_audio(input_path: str) -> str:
 
 
 def _convert_to_mp4(input_path: str, output_path: str) -> None:
-    """Converte qualquer vídeo para MP4 H264 limpo antes da composição."""
     cmd = [
-       "ffmpeg", "-y",
+        "ffmpeg", "-y",
         "-threads", "2",
         "-i", input_path,
+        "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", "23",
         "-pix_fmt", "yuv420p",
@@ -107,15 +98,12 @@ def compose_duet(
     watermark_text: str | None = None,
 ) -> None:
     watermark_text = watermark_text or settings.WATERMARK_TEXT
-    safe_watermark = watermark_text.replace(":", "\\:").replace("'", "\\'")
 
     fixed_audio_path = _fix_audio(camera_path)
 
-    # Pré-converte o vídeo de referência para MP4 limpo
     ref_converted = str(Path(output_path).parent / "ref_conv.mp4")
     _convert_to_mp4(reference_path, ref_converted)
 
-    # Pré-converte o vídeo da câmera para MP4 limpo (resolve VP9/WebM com 90000fps)
     cam_converted = str(Path(output_path).parent / "cam_conv.mp4")
     _convert_to_mp4(camera_path, cam_converted)
 
@@ -140,7 +128,7 @@ def compose_duet(
     else:
         raise ValueError(f"Layout inválido: {layout}")
 
-        cmd = [
+    cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
         "-i", ref_converted,
