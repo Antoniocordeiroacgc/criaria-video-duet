@@ -119,7 +119,10 @@ def compose_duet(
             f"crop={w}:{h},setsar=1[top];"
             f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[bottom];"
-            f"[top][bottom]vstack=inputs=2[final_v]"
+            f"[top][bottom]vstack=inputs=2[stacked];"
+            f"[stacked]drawtext=text='CRIAR.IA TECNOLOGIA':"
+            f"fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=8:"
+            f"x=(w-text_w)/2:y=h-th-20[final_v]"
         )
     elif layout == "side_by_side":
         w, h = 960, 1080
@@ -128,7 +131,10 @@ def compose_duet(
             f"crop={w}:{h},setsar=1[left];"
             f"[1:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
             f"crop={w}:{h},setsar=1[right];"
-            f"[left][right]hstack=inputs=2[final_v]"
+            f"[left][right]hstack=inputs=2[stacked];"
+            f"[stacked]drawtext=text='CRIAR.IA TECNOLOGIA':"
+            f"fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=8:"
+            f"x=(w-text_w)/2:y=h-th-20[final_v]"
         )
     else:
         raise ValueError(f"Layout inválido: {layout}")
