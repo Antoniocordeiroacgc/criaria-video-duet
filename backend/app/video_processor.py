@@ -133,6 +133,9 @@ def compose_duet(
     else:
         raise ValueError(f"Layout inválido: {layout}")
 
+    # Grava primeiro em formato TS (não precisa de moov atom)
+    ts_output = output_path.replace(".mp4", ".ts")
+
     cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
@@ -153,30 +156,28 @@ def compose_duet(
         "-ar", "44100",
         "-ac", "2",
         "-b:a", "128k",
-        "-movflags", "+faststart",
         "-shortest",
-        output_path,
+        "-f", "mpegts",
+        ts_output,
     ]
 
     _run_ffmpeg(cmd, check_frames=True)
 
-    # Remux para garantir MP4 bem formado e reproduzível
-    fixed_output = output_path.replace(".mp4", "_remux.mp4")
-    remux_cmd = [
+    # Converte TS para MP4 com faststart (garante moov atom no início)
+    mp4_cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
-        "-i", output_path,
+        "-i", ts_output,
         "-c", "copy",
         "-movflags", "+faststart",
-        fixed_output,
+        output_path,
     ]
+    _run_ffmpeg(mp4_cmd)
+
     try:
-        _run_ffmpeg(remux_cmd)
-        if Path(fixed_output).exists() and Path(fixed_output).stat().st_size > 0:
-            os.replace(fixed_output, output_path)
-            logger.info("Remux concluído com sucesso")
-    except Exception as e:
-        logger.warning("Remux falhou, usando arquivo original: %s", e)
+        Path(ts_output).unlink()
+    except Exception:
+        pass
 
     try:
         Path(fixed_audio_path).unlink()
