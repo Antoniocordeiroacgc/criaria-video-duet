@@ -29,6 +29,35 @@ celery_app.conf.update(
 )
 
 
+def _get_real_duration(video_path: str) -> float:
+    """
+    Obtém a duração real do vídeo contando pacotes.
+    WebM gravado pelo celular frequentemente tem metadados de duração errados.
+    """
+    duration = probe_duration_seconds(video_path)
+
+    try:
+        cmd = [
+            "ffprobe", "-v", "error",
+            "-count_packets",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=nb_read_packets",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            video_path,
+        ]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
+        packets = int(result.stdout.strip())
+        if packets > 0:
+            real_duration = packets / 30.0
+            if real_duration > duration:
+                logger.info("Duração corrigida por pacotes: %.2fs (antes: %.2fs)", real_duration, duration)
+                return real_duration
+    except Exception as e:
+        logger.warning("Não foi possível contar pacotes: %s", e)
+
+    return duration
+
+
 def _photos_to_video_synced(
     photo_paths: list[str],
     output_path: str,
@@ -65,10 +94,10 @@ def _photos_to_video_synced(
             "-t", str(duration),
             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
-           "-c:v", "libx264", "-preset", "veryfast",
-           "-x264-params", "threads=2",
-           "-pix_fmt", "yuv420p",
-           "-f", "mpegts",
+            "-c:v", "libx264", "-preset", "veryfast",
+            "-x264-params", "threads=2",
+            "-pix_fmt", "yuv420p",
+            "-f", "mpegts",
             seg,
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -77,7 +106,6 @@ def _photos_to_video_synced(
         segment_paths.append(seg)
 
     if len(segment_paths) == 1:
-        # Converte TS único para MP4
         mp4_cmd = [
             "ffmpeg", "-y",
             "-threads", "2",
@@ -91,7 +119,6 @@ def _photos_to_video_synced(
             raise FFmpegError(result.stderr.decode()[-2000:])
         return
 
-    # Concatena segmentos TS
     list_file = str(tmp_dir / "concat_list.txt")
     with open(list_file, "w") as f:
         for seg in segment_paths:
@@ -110,7 +137,6 @@ def _photos_to_video_synced(
     if result.returncode != 0:
         raise FFmpegError(result.stderr.decode()[-2000:])
 
-    # Converte TS concatenado para MP4
     mp4_cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
@@ -166,7 +192,9 @@ def process_duet_job(self, job_id: str):
 
             is_photo = getattr(job, 'reference_type', 'video') == "image"
             if is_photo:
-                cam_duration = probe_duration_seconds(cam_local)
+                # Usa contagem de pacotes para duração real do WebM
+                cam_duration = _get_real_duration(cam_local)
+                logger.info("Duração da câmera: %.2fs", cam_duration)
 
                 timestamps = None
                 if hasattr(job, 'photo_timestamps') and job.photo_timestamps:
