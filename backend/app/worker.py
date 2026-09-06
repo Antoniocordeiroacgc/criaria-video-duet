@@ -12,7 +12,7 @@ from celery import Celery
 from app.config import settings
 from app.models import SessionLocal, RenderJob, JobStatus
 from app.storage import download_to_file, upload_file
-from app.video_processor import compose_duet, probe_duration_seconds, FFmpegError, _convert_to_mp4
+from app.video_processor import compose_duet, probe_duration_seconds, FFmpegError
 
 logger = logging.getLogger(__name__)
 
@@ -35,37 +35,26 @@ def _photos_to_video_synced(
     total_duration: float,
     timestamps: list[dict] | None = None,
 ) -> None:
-    """
-    Converte fotos em vídeo usando timestamps do carrossel para sincronização.
-
-    timestamps: [{ "photoIndex": 0, "startTime": 0 }, { "photoIndex": 1, "startTime": 5.3 }, ...]
-    Se não houver timestamps, divide igualmente.
-    """
     n = len(photo_paths)
     tmp_dir = Path(output_path).parent
 
-    # Calcula duração de cada foto
     if timestamps and len(timestamps) > 0:
-        # Usa timestamps reais do carrossel
         durations = []
         sorted_ts = sorted(timestamps, key=lambda x: x['startTime'])
-
         for i, ts in enumerate(sorted_ts):
             photo_idx = ts['photoIndex']
             start = ts['startTime']
             end = sorted_ts[i + 1]['startTime'] if i + 1 < len(sorted_ts) else total_duration
-            duration = max(0.5, end - start)  # mínimo 0.5s por foto
+            duration = max(0.5, end - start)
             durations.append((photo_idx, duration))
     else:
-        # Divide igualmente
         duration_each = total_duration / n
         durations = [(i, duration_each) for i in range(n)]
 
-    # Gera segmento para cada foto
     segment_paths = []
     for seg_idx, (photo_idx, duration) in enumerate(durations):
         photo_path = photo_paths[min(photo_idx, n - 1)]
-                seg = str(tmp_dir / f"seg_{seg_idx}.ts")
+        seg = str(tmp_dir / f"seg_{seg_idx}.ts")
         cmd = [
             "ffmpeg", "-y",
             "-threads", "2",
@@ -87,17 +76,27 @@ def _photos_to_video_synced(
         segment_paths.append(seg)
 
     if len(segment_paths) == 1:
-        import shutil
-        shutil.copy(segment_paths[0], output_path)
+        # Converte TS único para MP4
+        mp4_cmd = [
+            "ffmpeg", "-y",
+            "-threads", "2",
+            "-i", segment_paths[0],
+            "-c", "copy",
+            "-movflags", "+faststart",
+            output_path,
+        ]
+        result = subprocess.run(mp4_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result.returncode != 0:
+            raise FFmpegError(result.stderr.decode()[-2000:])
         return
 
-    # Concatena os segmentos
+    # Concatena segmentos TS
     list_file = str(tmp_dir / "concat_list.txt")
     with open(list_file, "w") as f:
         for seg in segment_paths:
             f.write(f"file '{seg}'\n")
 
-        ts_output = output_path.replace(".mp4", ".ts")
+    ts_output = output_path.replace(".mp4", "_concat.ts")
     cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
@@ -110,7 +109,7 @@ def _photos_to_video_synced(
     if result.returncode != 0:
         raise FFmpegError(result.stderr.decode()[-2000:])
 
-    # Converte TS para MP4 final
+    # Converte TS concatenado para MP4
     mp4_cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
@@ -120,10 +119,6 @@ def _photos_to_video_synced(
         output_path,
     ]
     result = subprocess.run(mp4_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0:
-        raise FFmpegError(result.stderr.decode()[-2000:])
-    return
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         raise FFmpegError(result.stderr.decode()[-2000:])
 
@@ -172,9 +167,8 @@ def process_duet_job(self, job_id: str):
             if is_photo:
                 cam_duration = probe_duration_seconds(cam_local)
 
-                # Recupera timestamps do carrossel se existirem
                 timestamps = None
-                if job.reference_keys_json and hasattr(job, 'photo_timestamps') and job.photo_timestamps:
+                if hasattr(job, 'photo_timestamps') and job.photo_timestamps:
                     try:
                         timestamps = json.loads(job.photo_timestamps)
                     except Exception:
