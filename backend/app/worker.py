@@ -65,9 +65,10 @@ def _photos_to_video_synced(
             "-t", str(duration),
             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
-            "-c:v", "libx264", "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            "-f", "mpegts",
+           "-c:v", "libx264", "-preset", "veryfast",
+           "-x264-params", "threads=2",
+           "-pix_fmt", "yuv420p",
+           "-f", "mpegts",
             seg,
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
