@@ -2,18 +2,20 @@ import React, { useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 import { Video, Sparkles, Upload, Image, Film } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import VideoPlayer from '@/components/VideoPlayer.jsx';
 import PhotoCarousel from '@/components/PhotoCarousel.jsx';
 import CameraRecorder from '@/components/CameraRecorder.jsx';
 
 export default function HomePage() {
   const referenceVideoRef = useRef(null);
-  const [referenceFile, setReferenceFile] = useState(null);       // vídeo único
-  const [referencePhotos, setReferencePhotos] = useState([]);     // array de fotos
-  const [mediaMode, setMediaMode] = useState(null);               // 'video' | 'photos'
+  const carouselRef = useRef(null);
+
+  const [referenceFile, setReferenceFile] = useState(null);
+  const [referencePhotos, setReferencePhotos] = useState([]);
+  const [mediaMode, setMediaMode] = useState(null); // 'video' | 'photos'
   const [uploadError, setUploadError] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
+
   const videoInputRef = useRef(null);
   const photoInputRef = useRef(null);
 
@@ -52,8 +54,7 @@ export default function HomePage() {
     setShowPicker(false);
   };
 
-  // O que passa para o CameraRecorder como "referenceFile"
-  // Para fotos, passa o array; para vídeo, passa o arquivo único
+  // Para o CameraRecorder: fotos → passa o array, vídeo → passa o File
   const referenceForCamera = mediaMode === 'photos' ? referencePhotos : referenceFile;
 
   return (
@@ -85,7 +86,7 @@ export default function HomePage() {
           </div>
         </header>
 
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 main-content-wrapper">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
 
             {/* Coluna 1 — Referência */}
@@ -102,9 +103,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">Referência</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Vídeo ou fotos para reagir.
-                    </p>
+                    <p className="text-sm text-muted-foreground">Vídeo ou fotos para reagir.</p>
                   </div>
                 </div>
 
@@ -118,7 +117,6 @@ export default function HomePage() {
                     Upar
                   </button>
 
-                  {/* Dropdown picker */}
                   {showPicker && (
                     <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-44">
                       <button
@@ -139,22 +137,8 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Inputs ocultos */}
-                  <input
-                    ref={videoInputRef}
-                    type="file"
-                    accept="video/*"
-                    className="hidden"
-                    onChange={handleVideoUpload}
-                  />
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={handlePhotosUpload}
-                  />
+                  <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+                  <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosUpload} />
                 </div>
               </div>
 
@@ -169,7 +153,7 @@ export default function HomePage() {
                   <VideoPlayer ref={referenceVideoRef} file={referenceFile} />
                 )}
                 {mediaMode === 'photos' && (
-                  <PhotoCarousel photos={referencePhotos} />
+                  <PhotoCarousel ref={carouselRef} photos={referencePhotos} />
                 )}
                 {!mediaMode && (
                   <div className="w-full aspect-[9/16] max-h-[70vh] rounded-xl bg-card border border-border/50 flex flex-col items-center justify-center gap-3 p-6 text-center">
@@ -208,16 +192,18 @@ export default function HomePage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Sua Câmera</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Ligue a câmera e grave seu vídeo duet.
-                  </p>
+                  <p className="text-sm text-muted-foreground">Ligue a câmera e grave seu vídeo duet.</p>
                 </div>
               </div>
               <div className="w-full max-w-2xl mx-auto">
                 <CameraRecorder
                   referenceFile={referenceForCamera}
                   referenceMode={mediaMode}
+                  carouselRef={carouselRef}
                   onRecordingStart={() => {
+                    // Inicia registro de timestamps no carrossel
+                    carouselRef.current?.startRecording();
+                    // Pausa o vídeo de referência se houver
                     if (referenceVideoRef.current) {
                       referenceVideoRef.current.pause();
                     }
@@ -228,12 +214,10 @@ export default function HomePage() {
           </div>
         </main>
 
-        <footer className="fixed-footer">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <p className="text-sm text-muted-foreground tracking-wide font-medium">
-              Desenvolvido por <span className="text-primary">CRIAR.IA TECNOLOGIA</span> | criarhub.com © 2026
-            </p>
-          </div>
+        <footer className="border-t border-border py-4 text-center">
+          <p className="text-sm text-muted-foreground tracking-wide font-medium">
+            Desenvolvido por <span className="text-primary">CRIAR.IA TECNOLOGIA</span> | criarhub.com © 2026
+          </p>
         </footer>
       </div>
     </>

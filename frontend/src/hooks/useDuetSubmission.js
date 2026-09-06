@@ -47,7 +47,20 @@ export function useDuetSubmission() {
     }, 2000);
   }, [stopPolling]);
 
-  const submitDuet = useCallback(async ({ referenceFiles, cameraBlob, layout = 'top_bottom' }) => {
+  /**
+   * submitDuet
+   * @param referenceFiles  File[]   — vídeo ou fotos de referência
+   * @param cameraBlob      Blob     — vídeo gravado pela câmera
+   * @param layout          string   — 'top_bottom' | 'side_by_side'
+   * @param photoTimestamps Array    — timestamps do carrossel (opcional)
+   *   formato: [{ photoIndex: 0, startTime: 0 }, { photoIndex: 1, startTime: 5.3 }, ...]
+   */
+  const submitDuet = useCallback(async ({
+    referenceFiles,
+    cameraBlob,
+    layout = 'top_bottom',
+    photoTimestamps = null,
+  }) => {
     setStatus('uploading');
     setProgress(0);
     setErrorMessage(null);
@@ -57,8 +70,7 @@ export function useDuetSubmission() {
       const formData = new FormData();
 
       const [firstFile, ...extraFiles] = referenceFiles;
-      const firstName = firstFile.name || 'reference_0';
-      formData.append('reference_video', firstFile, firstName);
+      formData.append('reference_video', firstFile, firstFile.name || 'reference_0');
 
       extraFiles.forEach((file, i) => {
         formData.append('reference_photos', file, file.name || `photo_${i + 1}`);
@@ -70,6 +82,11 @@ export function useDuetSubmission() {
         `camera-${Date.now()}.${cameraBlob.type?.includes('webm') ? 'webm' : 'mp4'}`
       );
       formData.append('layout', layout);
+
+      // Envia timestamps do carrossel se houver
+      if (photoTimestamps && photoTimestamps.length > 0) {
+        formData.append('photo_timestamps', JSON.stringify(photoTimestamps));
+      }
 
       const res = await fetch(`${API_BASE_URL}/jobs`, {
         method: 'POST',

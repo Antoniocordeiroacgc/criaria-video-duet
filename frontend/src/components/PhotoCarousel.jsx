@@ -1,37 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { ChevronLeft, ChevronRight, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
- * PhotoCarousel — exibe um carrossel de fotos com setas manuais.
- * O usuário passa as fotos clicando nas setas enquanto grava.
+ * PhotoCarousel — carrossel de fotos com registro de timestamps.
  *
- * Props:
- *  - photos: File[] — array de arquivos de imagem
+ * Quando a gravação começa (startRecording()), o carrossel começa a registrar
+ * o momento exato de cada troca de foto. Esses timestamps são usados pelo
+ * backend para sincronizar o vídeo final com o carrossel.
+ *
+ * Ref exposta:
+ *   - startRecording(): inicia o registro de timestamps
+ *   - stopRecording(): para o registro e retorna os timestamps
+ *   - getTimestamps(): retorna os timestamps coletados
+ *
+ * Formato dos timestamps:
+ *   [{ photoIndex: 0, startTime: 0 }, { photoIndex: 1, startTime: 5.3 }, ...]
  */
-export default function PhotoCarousel({ photos = [] }) {
+const PhotoCarousel = forwardRef(({ photos = [] }, ref) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [objectUrls, setObjectUrls] = useState([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const timestampsRef = useRef([]);
+  const recordingStartRef = useRef(null);
 
   useEffect(() => {
-    // Limpa URLs anteriores
     objectUrls.forEach(url => URL.revokeObjectURL(url));
-
     if (!photos.length) {
       setObjectUrls([]);
       setCurrentIndex(0);
       return;
     }
-
     const urls = photos.map(f => URL.createObjectURL(f));
     setObjectUrls(urls);
     setCurrentIndex(0);
-
     return () => urls.forEach(url => URL.revokeObjectURL(url));
   }, [photos]);
 
-  const prev = () => setCurrentIndex(i => Math.max(0, i - 1));
-  const next = () => setCurrentIndex(i => Math.min(objectUrls.length - 1, i + 1));
+  // Registra a foto atual com o tempo decorrido desde o início da gravação
+  const recordTimestamp = useCallback((index) => {
+    if (!isRecording || !recordingStartRef.current) return;
+    const elapsed = (Date.now() - recordingStartRef.current) / 1000;
+    timestampsRef.current.push({ photoIndex: index, startTime: elapsed });
+  }, [isRecording]);
+
+  const goTo = useCallback((index) => {
+    setCurrentIndex(index);
+    recordTimestamp(index);
+  }, [recordTimestamp]);
+
+  const prev = () => goTo(Math.max(0, currentIndex - 1));
+  const next = () => goTo(Math.min(objectUrls.length - 1, currentIndex + 1));
+
+  // Expõe métodos para o CameraRecorder controlar o carrossel
+  useImperativeHandle(ref, () => ({
+    startRecording: () => {
+      timestampsRef.current = [{ photoIndex: currentIndex, startTime: 0 }];
+      recordingStartRef.current = Date.now();
+      setIsRecording(true);
+    },
+    stopRecording: () => {
+      setIsRecording(false);
+      recordingStartRef.current = null;
+      return timestampsRef.current;
+    },
+    getTimestamps: () => timestampsRef.current,
+  }));
 
   if (!objectUrls.length) {
     return (
@@ -44,10 +78,8 @@ export default function PhotoCarousel({ photos = [] }) {
 
   return (
     <div className="w-full flex flex-col gap-2">
-      {/* Container principal */}
       <div className="relative w-full aspect-[9/16] max-h-[70vh] rounded-xl bg-black overflow-hidden border border-border/50 shadow-lg">
-        
-        {/* Foto atual */}
+
         <AnimatePresence mode="wait">
           <motion.img
             key={currentIndex}
@@ -61,7 +93,14 @@ export default function PhotoCarousel({ photos = [] }) {
           />
         </AnimatePresence>
 
-        {/* Seta esquerda */}
+        {/* Indicador de gravação */}
+        {isRecording && (
+          <div className="absolute top-3 left-3 flex items-center gap-2 bg-red-600/90 text-white px-3 py-1 rounded-full text-xs font-medium">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            Gravando
+          </div>
+        )}
+
         <button
           onClick={prev}
           disabled={currentIndex === 0}
@@ -70,7 +109,6 @@ export default function PhotoCarousel({ photos = [] }) {
           <ChevronLeft className="w-6 h-6" />
         </button>
 
-        {/* Seta direita */}
         <button
           onClick={next}
           disabled={currentIndex === objectUrls.length - 1}
@@ -79,35 +117,28 @@ export default function PhotoCarousel({ photos = [] }) {
           <ChevronRight className="w-6 h-6" />
         </button>
 
-        {/* Contador */}
         <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-medium px-2 py-1 rounded-full">
           {currentIndex + 1} / {objectUrls.length}
         </div>
 
-        {/* Indicadores (bolinhas) */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
           {objectUrls.map((_, i) => (
             <button
               key={i}
-              onClick={() => setCurrentIndex(i)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                i === currentIndex ? 'bg-white scale-110' : 'bg-white/40'
-              }`}
+              onClick={() => goTo(i)}
+              className={`w-2 h-2 rounded-full transition-all ${i === currentIndex ? 'bg-white scale-110' : 'bg-white/40'}`}
             />
           ))}
         </div>
       </div>
 
-      {/* Miniaturas */}
       {objectUrls.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {objectUrls.map((url, i) => (
             <button
               key={i}
-              onClick={() => setCurrentIndex(i)}
-              className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-                i === currentIndex ? 'border-primary' : 'border-transparent opacity-60'
-              }`}
+              onClick={() => goTo(i)}
+              className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${i === currentIndex ? 'border-primary' : 'border-transparent opacity-60'}`}
             >
               <img src={url} alt="" className="w-full h-full object-cover" />
             </button>
@@ -116,4 +147,7 @@ export default function PhotoCarousel({ photos = [] }) {
       )}
     </div>
   );
-}
+});
+
+PhotoCarousel.displayName = 'PhotoCarousel';
+export default PhotoCarousel;

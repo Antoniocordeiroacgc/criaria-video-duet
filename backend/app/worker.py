@@ -1,8 +1,7 @@
 """
-Celery worker — processa vídeo + vídeo OU fotos + vídeo em duet.
-Para fotos: converte cada imagem em vídeo com duração proporcional,
-concatena tudo e então faz o split-screen com o vídeo da câmera.
+Celery worker — processa vídeo + vídeo OU fotos (carrossel sincronizado) em duet.
 """
+import json
 import logging
 import subprocess
 import tempfile
@@ -13,7 +12,7 @@ from celery import Celery
 from app.config import settings
 from app.models import SessionLocal, RenderJob, JobStatus
 from app.storage import download_to_file, upload_file
-from app.video_processor import compose_duet, probe_duration_seconds, FFmpegError
+from app.video_processor import compose_duet, probe_duration_seconds, FFmpegError, _convert_to_mp4
 
 logger = logging.getLogger(__name__)
 
@@ -30,40 +29,51 @@ celery_app.conf.update(
 )
 
 
-def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: float) -> None:
+def _photos_to_video_synced(
+    photo_paths: list[str],
+    output_path: str,
+    total_duration: float,
+    timestamps: list[dict] | None = None,
+) -> None:
+    """
+    Converte fotos em vídeo usando timestamps do carrossel para sincronização.
+
+    timestamps: [{ "photoIndex": 0, "startTime": 0 }, { "photoIndex": 1, "startTime": 5.3 }, ...]
+    Se não houver timestamps, divide igualmente.
+    """
     n = len(photo_paths)
-    duration_each = total_duration / n
     tmp_dir = Path(output_path).parent
 
-    if n == 1:
-        cmd = [
-            "ffmpeg", "-y",
-            "-loop", "1",
-            "-framerate", "30",
-            "-i", photo_paths[0],
-            "-r", "30",
-            "-t", str(total_duration),
-            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
-                   "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
-            "-c:v", "libx264", "-preset", "veryfast",
-            "-pix_fmt", "yuv420p",
-            output_path,
-        ]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if result.returncode != 0:
-            raise FFmpegError(result.stderr.decode()[-2000:])
-        return
+    # Calcula duração de cada foto
+    if timestamps and len(timestamps) > 0:
+        # Usa timestamps reais do carrossel
+        durations = []
+        sorted_ts = sorted(timestamps, key=lambda x: x['startTime'])
 
+        for i, ts in enumerate(sorted_ts):
+            photo_idx = ts['photoIndex']
+            start = ts['startTime']
+            end = sorted_ts[i + 1]['startTime'] if i + 1 < len(sorted_ts) else total_duration
+            duration = max(0.5, end - start)  # mínimo 0.5s por foto
+            durations.append((photo_idx, duration))
+    else:
+        # Divide igualmente
+        duration_each = total_duration / n
+        durations = [(i, duration_each) for i in range(n)]
+
+    # Gera segmento para cada foto
     segment_paths = []
-    for i, photo_path in enumerate(photo_paths):
-        seg = str(tmp_dir / f"seg_{i}.mp4")
+    for seg_idx, (photo_idx, duration) in enumerate(durations):
+        photo_path = photo_paths[min(photo_idx, n - 1)]
+        seg = str(tmp_dir / f"seg_{seg_idx}.mp4")
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             "-loop", "1",
             "-framerate", "30",
             "-i", photo_path,
             "-r", "30",
-            "-t", str(duration_each),
+            "-t", str(duration),
             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
             "-c:v", "libx264", "-preset", "veryfast",
@@ -75,6 +85,12 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
             raise FFmpegError(result.stderr.decode()[-2000:])
         segment_paths.append(seg)
 
+    if len(segment_paths) == 1:
+        import shutil
+        shutil.copy(segment_paths[0], output_path)
+        return
+
+    # Concatena os segmentos
     list_file = str(tmp_dir / "concat_list.txt")
     with open(list_file, "w") as f:
         for seg in segment_paths:
@@ -82,6 +98,7 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
 
     cmd = [
         "ffmpeg", "-y",
+        "-threads", "2",
         "-f", "concat", "-safe", "0",
         "-i", list_file,
         "-c", "copy",
@@ -90,6 +107,7 @@ def _photos_to_video(photo_paths: list[str], output_path: str, total_duration: f
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         raise FFmpegError(result.stderr.decode()[-2000:])
+
 
 @celery_app.task(name="process_duet_job", bind=True, max_retries=1)
 def process_duet_job(self, job_id: str):
@@ -111,19 +129,16 @@ def process_duet_job(self, job_id: str):
         ref_for_compose = str(tmp_path / "reference_final.mp4")
 
         try:
-            # Download do vídeo da câmera
             download_to_file(job.camera_video_key, cam_local)
             job.progress_pct = 20
             db.commit()
 
-            # Obtém as chaves de referência
             ref_keys = (
                 job.reference_keys_json.split(",")
                 if job.reference_keys_json
                 else [job.reference_video_key]
             )
 
-            # Download dos arquivos de referência
             ref_local_paths = []
             for i, key in enumerate(ref_keys):
                 ext = key.split(".")[-1]
@@ -134,18 +149,25 @@ def process_duet_job(self, job_id: str):
             job.progress_pct = 40
             db.commit()
 
-            # Se for foto(s): converte para vídeo com duração da câmera
             is_photo = getattr(job, 'reference_type', 'video') == "image"
             if is_photo:
                 cam_duration = probe_duration_seconds(cam_local)
-                _photos_to_video(ref_local_paths, ref_for_compose, cam_duration)
+
+                # Recupera timestamps do carrossel se existirem
+                timestamps = None
+                if job.reference_keys_json and hasattr(job, 'photo_timestamps') and job.photo_timestamps:
+                    try:
+                        timestamps = json.loads(job.photo_timestamps)
+                    except Exception:
+                        timestamps = None
+
+                _photos_to_video_synced(ref_local_paths, ref_for_compose, cam_duration, timestamps)
             else:
                 ref_for_compose = ref_local_paths[0]
 
             job.progress_pct = 60
             db.commit()
 
-            # Composição do duet
             compose_duet(
                 reference_path=ref_for_compose,
                 camera_path=cam_local,
@@ -155,7 +177,6 @@ def process_duet_job(self, job_id: str):
             job.progress_pct = 85
             db.commit()
 
-            # Upload do resultado
             output_key = f"outputs/{job_id}/final.mp4"
             upload_file(out_local, output_key, content_type="video/mp4")
 

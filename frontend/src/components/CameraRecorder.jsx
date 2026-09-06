@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Video, Square, Circle, Camera, CameraOff, Download, UploadCloud, CheckCircle2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder.js';
 import { useDuetSubmission } from '@/hooks/useDuetSubmission.js';
 
-export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart }) {
+export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart, carouselRef }) {
   const videoRef = useRef(null);
   const {
     stream,
@@ -40,12 +40,17 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
 
   const handleSendForComposition = () => {
     if (!referenceFile) return;
-    // Para fotos: referenceFile é um array; para vídeo: é um File único
     const files = Array.isArray(referenceFile) ? referenceFile : [referenceFile];
-    submitDuet({ referenceFiles: files, cameraBlob: recordedBlob, layout: 'top_bottom' });
+    // Pega timestamps do carrossel se disponível
+    const photoTimestamps = carouselRef?.current?.getTimestamps() || null;
+    submitDuet({
+      referenceFiles: files,
+      cameraBlob: recordedBlob,
+      layout: 'top_bottom',
+      photoTimestamps,
+    });
   };
 
-  // Desligar câmera: para a gravação primeiro se estiver gravando, depois desliga
   const handleStopCamera = () => {
     if (isRecording) {
       stopRecording();
@@ -113,10 +118,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
             animate={{ opacity: 1 }}
             className="absolute top-4 left-4 flex items-center gap-2 bg-destructive/90 text-white px-3 py-1.5 rounded-lg shadow-sm"
           >
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            >
+            <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }}>
               <Circle className="w-3 h-3 fill-current" />
             </motion.div>
             <span className="text-sm font-bold tracking-wider">REC</span>
@@ -132,9 +134,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
 
         {(isRecording || isPaused) && (
           <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1.5 rounded-lg backdrop-blur-sm">
-            <span className="text-sm font-medium timer-display">
-              {formatDuration(duration)}
-            </span>
+            <span className="text-sm font-medium timer-display">{formatDuration(duration)}</span>
           </div>
         )}
       </div>
@@ -150,7 +150,6 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
       )}
 
       <div className="flex flex-col gap-4">
-        {/* Estado 1: Sem gravação ainda */}
         {!recordedBlob && (
           <div className="flex flex-wrap items-center justify-center gap-3">
             {!isStreamReady ? (
@@ -164,7 +163,6 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
               </Button>
             ) : (
               <>
-                {/* Botão desligar câmera — habilitado sempre, mesmo durante gravação */}
                 <Button
                   onClick={handleStopCamera}
                   size="lg"
@@ -178,9 +176,9 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
                 {!isRecording ? (
                   <Button
                     onClick={() => {
-                    onRecordingStart?.();
-                    startRecording();
-                  }}
+                      onRecordingStart?.();
+                      startRecording();
+                    }}
                     size="lg"
                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold shadow-md"
                   >
@@ -216,7 +214,6 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
           </div>
         )}
 
-        {/* Estado 2: Gravação concluída */}
         {recordedBlob && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}

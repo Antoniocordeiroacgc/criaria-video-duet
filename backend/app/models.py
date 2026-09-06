@@ -32,17 +32,16 @@ class RenderJob(Base):
     status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.PENDING, index=True)
     layout: Mapped[Layout] = mapped_column(Enum(Layout), default=Layout.TOP_BOTTOM)
 
-    # Tipo de referência: 'video' ou 'image'
     reference_type: Mapped[str] = mapped_column(String(10), default="video")
     reference_count: Mapped[int] = mapped_column(Integer, default=1)
 
-    # Chave do primeiro arquivo de referência (compatibilidade)
     reference_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    # Todas as chaves separadas por vírgula (para carrossel de fotos)
     reference_keys_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-
     camera_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     output_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
+    # Timestamps do carrossel para sincronização
+    photo_timestamps: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     progress_pct: Mapped[int] = mapped_column(default=0)
