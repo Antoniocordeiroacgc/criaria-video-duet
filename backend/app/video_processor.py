@@ -179,7 +179,7 @@ def compose_duet(
         "-movflags", "+faststart",
         output_path,
     ]
-    _run_ffmpeg(mp4_cmd)
+    _run_ffmpeg(mp4_cmd, check_frames=True)
 
     try:
         Path(ts_output).unlink()
