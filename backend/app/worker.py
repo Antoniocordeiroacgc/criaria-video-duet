@@ -65,7 +65,7 @@ def _photos_to_video_synced(
     segment_paths = []
     for seg_idx, (photo_idx, duration) in enumerate(durations):
         photo_path = photo_paths[min(photo_idx, n - 1)]
-        seg = str(tmp_dir / f"seg_{seg_idx}.mp4")
+                seg = str(tmp_dir / f"seg_{seg_idx}.ts")
         cmd = [
             "ffmpeg", "-y",
             "-threads", "2",
@@ -78,6 +78,7 @@ def _photos_to_video_synced(
                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1",
             "-c:v", "libx264", "-preset", "veryfast",
             "-pix_fmt", "yuv420p",
+            "-f", "mpegts",
             seg,
         ]
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -96,14 +97,32 @@ def _photos_to_video_synced(
         for seg in segment_paths:
             f.write(f"file '{seg}'\n")
 
+        ts_output = output_path.replace(".mp4", ".ts")
     cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
         "-f", "concat", "-safe", "0",
         "-i", list_file,
         "-c", "copy",
+        ts_output,
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise FFmpegError(result.stderr.decode()[-2000:])
+
+    # Converte TS para MP4 final
+    mp4_cmd = [
+        "ffmpeg", "-y",
+        "-threads", "2",
+        "-i", ts_output,
+        "-c", "copy",
+        "-movflags", "+faststart",
         output_path,
     ]
+    result = subprocess.run(mp4_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise FFmpegError(result.stderr.decode()[-2000:])
+    return
     result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         raise FFmpegError(result.stderr.decode()[-2000:])
