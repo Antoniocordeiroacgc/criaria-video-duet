@@ -11,8 +11,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-TARGET_WIDTH = 1080
-TARGET_HEIGHT_HALF = 960
+TARGET_WIDTH = 720
+TARGET_HEIGHT_HALF = 640
 
 
 class FFmpegError(Exception):
