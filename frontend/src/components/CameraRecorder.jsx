@@ -103,7 +103,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+           className="w-full h-full object-contain"
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/50">
