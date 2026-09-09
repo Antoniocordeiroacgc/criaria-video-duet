@@ -25,9 +25,7 @@ export function useDuetSubmission() {
         });
         if (!res.ok) throw new Error('Falha ao consultar status do job.');
         const data = await res.json();
-
         setProgress(data.progress_pct ?? 0);
-
         if (data.status === 'done') {
           stopPolling();
           setDownloadUrl(`${API_BASE_URL}/jobs/${id}/file`);
@@ -47,19 +45,12 @@ export function useDuetSubmission() {
     }, 2000);
   }, [stopPolling]);
 
-  /**
-   * submitDuet
-   * @param referenceFiles  File[]   — vídeo ou fotos de referência
-   * @param cameraBlob      Blob     — vídeo gravado pela câmera
-   * @param layout          string   — 'top_bottom' | 'side_by_side'
-   * @param photoTimestamps Array    — timestamps do carrossel (opcional)
-   *   formato: [{ photoIndex: 0, startTime: 0 }, { photoIndex: 1, startTime: 5.3 }, ...]
-   */
   const submitDuet = useCallback(async ({
     referenceFiles,
     cameraBlob,
     layout = 'top_bottom',
     photoTimestamps = null,
+    refStartTimestamp = null,
   }) => {
     setStatus('uploading');
     setProgress(0);
@@ -68,24 +59,21 @@ export function useDuetSubmission() {
 
     try {
       const formData = new FormData();
-
       const [firstFile, ...extraFiles] = referenceFiles;
       formData.append('reference_video', firstFile, firstFile.name || 'reference_0');
-
       extraFiles.forEach((file, i) => {
         formData.append('reference_photos', file, file.name || `photo_${i + 1}`);
       });
-
-      formData.append(
-        'camera_video',
-        cameraBlob,
-        `camera-${Date.now()}.${cameraBlob.type?.includes('webm') ? 'webm' : 'mp4'}`
-      );
+      formData.append('camera_video', cameraBlob, `camera-${Date.now()}.${cameraBlob.type?.includes('webm') ? 'webm' : 'mp4'}`);
       formData.append('layout', layout);
 
-      // Envia timestamps do carrossel se houver
       if (photoTimestamps && photoTimestamps.length > 0) {
         formData.append('photo_timestamps', JSON.stringify(photoTimestamps));
+      }
+
+      // Timestamp de quando o vídeo de referência começou a tocar durante a gravação
+      if (refStartTimestamp !== null) {
+        formData.append('ref_start_timestamp', String(refStartTimestamp));
       }
 
       const res = await fetch(`${API_BASE_URL}/jobs`, {

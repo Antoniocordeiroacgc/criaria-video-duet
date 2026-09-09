@@ -12,7 +12,7 @@ export default function HomePage() {
 
   const [referenceFile, setReferenceFile] = useState(null);
   const [referencePhotos, setReferencePhotos] = useState([]);
-  const [mediaMode, setMediaMode] = useState(null); // 'video' | 'photos'
+  const [mediaMode, setMediaMode] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
 
@@ -54,7 +54,6 @@ export default function HomePage() {
     setShowPicker(false);
   };
 
-  // Para o CameraRecorder: fotos → passa o array, vídeo → passa o File
   const referenceForCamera = mediaMode === 'photos' ? referencePhotos : referenceFile;
 
   return (
@@ -67,20 +66,16 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                  <Video className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">
-                    DuoVideo
-                  </h1>
-                  <p className="text-xs font-medium text-primary tracking-wide uppercase flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    CRIAR.IA TECNOLOGIA
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+                <Video className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">DuoVideo</h1>
+                <p className="text-xs font-medium text-primary tracking-wide uppercase flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  CRIAR.IA TECNOLOGIA
+                </p>
               </div>
             </div>
           </div>
@@ -107,7 +102,6 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Botão único com picker */}
                 <div className="relative">
                   <button
                     onClick={() => setShowPicker(v => !v)}
@@ -200,13 +194,9 @@ export default function HomePage() {
                   referenceFile={referenceForCamera}
                   referenceMode={mediaMode}
                   carouselRef={carouselRef}
+                  referenceVideoRef={referenceVideoRef}
                   onRecordingStart={() => {
-                    // Inicia registro de timestamps no carrossel
                     carouselRef.current?.startRecording();
-                    // Pausa o vídeo de referência se houver
-                    if (referenceVideoRef.current) {
-                      referenceVideoRef.current.pause();
-                    }
                   }}
                 />
               </div>
