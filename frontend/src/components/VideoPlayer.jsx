@@ -8,6 +8,10 @@ const VideoPlayer = forwardRef(({ file, className = '' }, ref) => {
   const [metadata, setMetadata] = useState(null);
   const [error, setError] = useState(null);
   const videoRef = useRef(null);
+   // Expõe o elemento <video> para o componente pai via ref
+    useEffect(() => {
+      if (ref) ref.current = videoRef.current;
+    }, [showVideo]); 
 
   // Expõe ref externo
   useEffect(() => {
