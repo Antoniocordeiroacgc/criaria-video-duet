@@ -1,12 +1,28 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Video, Square, Circle, Camera, CameraOff, Download, UploadCloud, CheckCircle2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder.js';
+import { useDuetSubmission } from '@/hooks/useDuetSubmission.js';
 
-export default function CameraRecorder({ onRecordingComplete }) {
+export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart, carouselRef, referenceVideoRef }) {
   const videoRef = useRef(null);
+  const miniPlayerRef = useRef(null);
+  const recordingStartTimeRef = useRef(null);
+  const [refStartTimestamp, setRefStartTimestamp] = useState(null);
+  const [refPlaying, setRefPlaying] = useState(false);
+  const [refBlobUrl, setRefBlobUrl] = useState(null);
+
+  // Cria URL do vídeo de referência para o mini player
+  useEffect(() => {
+    if (referenceMode === 'video' && referenceFile && referenceFile instanceof File) {
+      const url = URL.createObjectURL(referenceFile);
+      setRefBlobUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setRefBlobUrl(null);
+  }, [referenceFile, referenceMode]);
+
   const {
     stream,
     isStreamReady,
@@ -24,9 +40,70 @@ export default function CameraRecorder({ onRecordingComplete }) {
     resetRecording
   } = useMediaRecorder();
 
-  const [uploadStatus, setUploadStatus] = useState('idle');
+  const {
+    status: submitStatus,
+    progress: submitProgress,
+    downloadUrl,
+    errorMessage: submitError,
+    submitDuet,
+    reset: resetSubmission,
+  } = useDuetSubmission();
 
-  // Bind the camera stream to the video element
+  const handleNewRecording = () => {
+    resetSubmission();
+    resetRecording();
+    setRefStartTimestamp(null);
+    setRefPlaying(false);
+    recordingStartTimeRef.current = null;
+  };
+
+  const handleSendForComposition = () => {
+    if (!referenceFile) return;
+    const files = Array.isArray(referenceFile) ? referenceFile : [referenceFile];
+    const photoTimestamps = carouselRef?.current?.getTimestamps() || null;
+    submitDuet({
+      referenceFiles: files,
+      cameraBlob: recordedBlob,
+      layout: 'top_bottom',
+      photoTimestamps,
+      refStartTimestamp,
+    });
+  };
+
+  // Botão "Mostrar Referência" — só aparece durante gravação de vídeo
+  const handleShowReference = () => {
+    if (refPlaying) return;
+    const elapsed = recordingStartTimeRef.current
+      ? (Date.now() - recordingStartTimeRef.current) / 1000
+      : 0;
+    setRefStartTimestamp(elapsed);
+    setRefPlaying(true);
+    setTimeout(() => {
+      if (miniPlayerRef.current) {
+        miniPlayerRef.current.currentTime = 0;
+        miniPlayerRef.current.play().catch(() => {});
+      }
+    }, 100);
+  };
+
+  const handleStopCamera = () => {
+    if (isRecording) stopRecording();
+    stopCamera();
+  };
+
+  const handleStartRecording = () => {
+    recordingStartTimeRef.current = Date.now();
+    setRefStartTimestamp(null);
+    setRefPlaying(false);
+    // Para o vídeo de referência se estiver tocando
+    if (referenceVideoRef?.current) {
+      referenceVideoRef.current.pause();
+      referenceVideoRef.current.currentTime = 0;
+    }
+    onRecordingStart?.();
+    startRecording();
+  };
+
   useEffect(() => {
     if (videoRef.current && stream && isStreamReady) {
       videoRef.current.srcObject = stream;
@@ -58,19 +135,6 @@ export default function CameraRecorder({ onRecordingComplete }) {
     }
   };
 
-  const handleSimulateUpload = () => {
-    setUploadStatus('uploading');
-    // Simulate network delay
-    setTimeout(() => {
-      setUploadStatus('success');
-    }, 2000);
-  };
-
-  const handleNewRecording = () => {
-    setUploadStatus('idle');
-    resetRecording();
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -78,32 +142,23 @@ export default function CameraRecorder({ onRecordingComplete }) {
       transition={{ duration: 0.5 }}
       className="w-full flex flex-col gap-4"
     >
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-border/50 shadow-lg">
+      <div className="relative w-full aspect-[9/16] max-h-[70vh] bg-black rounded-xl overflow-hidden border border-border/50 shadow-lg">
         {isStreamReady && stream ? (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/50">
             <Video className="w-16 h-16 text-muted-foreground mb-3" />
             <p className="text-muted-foreground text-sm font-medium">A câmera está desligada</p>
           </div>
         )}
-        
+
         {isRecording && !isPaused && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="absolute top-4 left-4 flex items-center gap-2 bg-destructive/90 text-white px-3 py-1.5 rounded-lg shadow-sm"
           >
-            <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 1, repeat: Infinity }}
-            >
+            <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1, repeat: Infinity }}>
               <Circle className="w-3 h-3 fill-current" />
             </motion.div>
             <span className="text-sm font-bold tracking-wider">REC</span>
@@ -119,9 +174,41 @@ export default function CameraRecorder({ onRecordingComplete }) {
 
         {(isRecording || isPaused) && (
           <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1.5 rounded-lg backdrop-blur-sm">
-            <span className="text-sm font-medium timer-display">
-              {formatDuration(duration)}
-            </span>
+            <span className="text-sm font-medium timer-display">{formatDuration(duration)}</span>
+          </div>
+        )}
+
+        {/* Mini player do vídeo de referência sobreposto */}
+        {refPlaying && refBlobUrl && (
+          <div className="absolute top-0 left-0 right-0 h-1/2 bg-black z-10">
+            <video
+              ref={miniPlayerRef}
+              src={refBlobUrl}
+              playsInline
+              controls
+              className="w-full h-full object-contain"
+              onEnded={() => setRefPlaying(false)}
+            />
+          </div>
+        )}
+
+        {/* Botão "Mostrar Referência" — só aparece durante gravação de vídeo */}
+        {isRecording && !isPaused && referenceMode === 'video' && referenceFile && (
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+            <button
+              onClick={handleShowReference}
+              disabled={refPlaying}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-lg transition-all ${
+                refPlaying
+                  ? 'bg-green-600/80 text-white cursor-default'
+                  : 'bg-white/90 text-black hover:bg-white'
+              }`}
+            >
+              <Play className="w-4 h-4 fill-current" />
+              {refPlaying
+                ? `Referência tocando (${refStartTimestamp?.toFixed(1)}s)`
+                : 'Mostrar Referência'}
+            </button>
           </div>
         )}
       </div>
@@ -136,39 +223,23 @@ export default function CameraRecorder({ onRecordingComplete }) {
         </motion.div>
       )}
 
-      {/* Control Actions */}
       <div className="flex flex-col gap-4">
-        {/* State 1: No recorded blob yet */}
         {!recordedBlob && (
           <div className="flex flex-wrap items-center justify-center gap-3">
             {!isStreamReady ? (
-              <Button
-                onClick={startCamera}
-                size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md"
-              >
+              <Button onClick={startCamera} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md">
                 <Camera className="w-5 h-5 mr-2" />
                 Ligar Câmera
               </Button>
             ) : (
               <>
-                <Button
-                  onClick={stopCamera}
-                  size="lg"
-                  variant="secondary"
-                  className="font-medium"
-                  disabled={isRecording}
-                >
+                <Button onClick={handleStopCamera} size="lg" variant="secondary" className="font-medium">
                   <CameraOff className="w-5 h-5 mr-2" />
                   Desligar Câmera
                 </Button>
 
                 {!isRecording ? (
-                  <Button
-                    onClick={startRecording}
-                    size="lg"
-                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold shadow-md"
-                  >
+                  <Button onClick={handleStartRecording} size="lg" className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold shadow-md">
                     <Circle className="w-5 h-5 mr-2 fill-current" />
                     Gravar
                   </Button>
@@ -180,17 +251,11 @@ export default function CameraRecorder({ onRecordingComplete }) {
                       variant="secondary"
                       className="font-medium border-border"
                     >
-                      {isPaused ? (
-                        <><Play className="w-5 h-5 mr-2 fill-current" /> Retomar</>
-                      ) : (
-                        <><Pause className="w-5 h-5 mr-2 fill-current" /> Pausar</>
-                      )}
+                      {isPaused
+                        ? <><Play className="w-5 h-5 mr-2 fill-current" /> Retomar</>
+                        : <><Pause className="w-5 h-5 mr-2 fill-current" /> Pausar</>}
                     </Button>
-                    <Button
-                      onClick={stopRecording}
-                      size="lg"
-                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold shadow-md"
-                    >
+                    <Button onClick={stopRecording} size="lg" className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold shadow-md">
                       <Square className="w-5 h-5 mr-2 fill-current" />
                       Parar Gravação
                     </Button>
@@ -201,9 +266,8 @@ export default function CameraRecorder({ onRecordingComplete }) {
           </div>
         )}
 
-        {/* State 2: Blob generated after stopping recording */}
         {recordedBlob && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="flex flex-col gap-4 p-5 bg-card border border-border shadow-sm rounded-xl"
@@ -218,34 +282,53 @@ export default function CameraRecorder({ onRecordingComplete }) {
               </span>
             </div>
 
+            {refStartTimestamp !== null && (
+              <p className="text-xs text-muted-foreground text-center">
+                Vídeo de referência inicia em <span className="font-medium text-foreground">{refStartTimestamp.toFixed(1)}s</span> no duet
+              </p>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
-              <Button
-                onClick={handleDownload}
-                size="lg"
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-              >
+              <Button onClick={handleDownload} size="lg" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                 <Download className="w-5 h-5 mr-2" />
                 Baixar Vídeo Gravado
               </Button>
-              
+
               <Button
-                onClick={handleSimulateUpload}
+                onClick={handleSendForComposition}
                 size="lg"
                 variant="secondary"
                 className="w-full font-semibold border-border"
-                disabled={uploadStatus !== 'idle'}
+                disabled={!referenceFile || submitStatus === 'uploading' || submitStatus === 'processing'}
               >
-                {uploadStatus === 'idle' && <><UploadCloud className="w-5 h-5 mr-2" /> Simular Upload</>}
-                {uploadStatus === 'uploading' && <><span className="w-5 h-5 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" /> Enviando...</>}
-                {uploadStatus === 'success' && <><CheckCircle2 className="w-5 h-5 mr-2 text-green-500" /> Upload Concluído</>}
+                {submitStatus === 'idle' && <><UploadCloud className="w-5 h-5 mr-2" /> Gerar Duet</>}
+                {submitStatus === 'uploading' && <><span className="w-5 h-5 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" /> Enviando...</>}
+                {submitStatus === 'processing' && <><span className="w-5 h-5 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" /> Processando {submitProgress}%</>}
+                {submitStatus === 'done' && <><CheckCircle2 className="w-5 h-5 mr-2 text-green-500" /> Duet pronto!</>}
+                {submitStatus === 'error' && <>Tentar novamente</>}
               </Button>
             </div>
 
-            <Button
-              onClick={handleNewRecording}
-              variant="ghost"
-              className="mt-2 text-muted-foreground hover:text-foreground w-full font-medium"
-            >
+            {!referenceFile && (
+              <p className="text-xs text-yellow-600 text-center -mt-1">
+                Envie um vídeo de referência acima para poder gerar o duet.
+              </p>
+            )}
+
+            {submitStatus === 'error' && submitError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive font-medium">{submitError}</p>
+              </div>
+            )}
+
+            {submitStatus === 'done' && downloadUrl && (
+              <a href={downloadUrl} download className="w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg py-3">
+                <Download className="w-5 h-5" />
+                Baixar Vídeo Duet Final
+              </a>
+            )}
+
+            <Button onClick={handleNewRecording} variant="ghost" className="mt-2 text-muted-foreground hover:text-foreground w-full font-medium">
               Fazer nova gravação
             </Button>
           </motion.div>
