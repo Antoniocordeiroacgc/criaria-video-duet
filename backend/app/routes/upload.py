@@ -47,7 +47,9 @@ async def create_duet_job(
     reference_video: UploadFile = File(..., description="Vídeo OU primeira foto de referência"),
     camera_video: UploadFile = File(..., description="Vídeo gravado pela câmera"),
     reference_photos: list[UploadFile] = File(default=[], description="Fotos adicionais do carrossel"),
-    layout: str = Form(default="top_bottom"),
+        layout: str = Form(default="top_bottom"),
+    photo_timestamps: str | None = Form(default=None),
+    ref_start_timestamp: float | None = Form(default=None),
     db: Session = Depends(get_db),
 ):
     if layout not in (Layout.TOP_BOTTOM.value, Layout.SIDE_BY_SIDE.value):
@@ -113,6 +115,7 @@ async def create_duet_job(
         job.reference_type = ref_type
         job.reference_count = len(ref_keys)
         job.camera_video_key = cam_key
+        job.photo_timestamps = photo_timestamps
         job.status = JobStatus.PENDING
         db.commit()
 
