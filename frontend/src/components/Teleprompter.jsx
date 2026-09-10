@@ -56,17 +56,17 @@ export default function Teleprompter({ text, isRecording, onClose }) {
 
   return (
     <div className="absolute inset-0 z-10 flex flex-col pointer-events-none">
-      {/* Gradiente superior — fade para não cortar o texto bruscamente */}
-      <div className="h-16 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
+      {/* Gradiente superior */}
+      <div className="h-16 bg-gradient-to-b from-black/70 to-transparent" />
 
-      {/* Área de texto rolante */}
+      {/* Área de texto rolante — só o texto captura eventos */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-hidden px-6"
+        className="flex-1 overflow-hidden px-16 pointer-events-none"
         style={{ scrollBehavior: 'auto' }}
       >
         <p
-          className="text-white text-2xl font-semibold leading-relaxed text-center"
+          className="text-white text-2xl font-semibold leading-relaxed text-center drop-shadow-lg"
           style={{
             textShadow: '0 2px 8px rgba(0,0,0,0.9)',
             paddingTop: '20vh',
@@ -78,33 +78,25 @@ export default function Teleprompter({ text, isRecording, onClose }) {
       </div>
 
       {/* Gradiente inferior */}
-      <div className="h-16 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+      <div className="h-16 bg-gradient-to-t from-black/70 to-transparent" />
 
-      {/* Linha central — referência visual onde o usuário deve ler */}
+      {/* Linha central */}
       <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t-2 border-primary/60 pointer-events-none" />
 
-      {/* Controles */}
-      <div className="absolute bottom-20 left-0 right-0 flex items-center justify-center gap-3 px-4 pointer-events-auto">
-        {/* Velocidade */}
+      {/* Controles — habilitam cliques */}
+      <div className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-3 px-4 pointer-events-auto">
         <div className="flex items-center gap-1 bg-black/70 rounded-full px-3 py-1.5">
-          <button
-            onClick={() => setSpeed(s => Math.max(1, s - 1))}
-            className="text-white p-1"
-          >
+          <button onClick={() => setSpeed(s => Math.max(1, s - 1))} className="text-white p-1">
             <ChevronDown className="w-4 h-4" />
           </button>
           <span className="text-white text-xs font-medium w-12 text-center">
             {speed === 1 ? 'Lento' : speed === 2 ? 'Normal' : 'Rápido'}
           </span>
-          <button
-            onClick={() => setSpeed(s => Math.min(3, s + 1))}
-            className="text-white p-1"
-          >
+          <button onClick={() => setSpeed(s => Math.min(3, s + 1))} className="text-white p-1">
             <ChevronUp className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Pausar/Retomar scroll */}
         <button
           onClick={() => setPaused(p => !p)}
           className="flex items-center gap-2 bg-black/70 rounded-full px-4 py-1.5 text-white text-xs font-medium"
@@ -113,12 +105,8 @@ export default function Teleprompter({ text, isRecording, onClose }) {
           {paused ? 'Retomar' : 'Pausar'}
         </button>
 
-        {/* Reiniciar */}
         {finished && (
-          <button
-            onClick={restart}
-            className="bg-primary rounded-full px-4 py-1.5 text-white text-xs font-medium"
-          >
+          <button onClick={restart} className="bg-primary rounded-full px-4 py-1.5 text-white text-xs font-medium">
             Reiniciar
           </button>
         )}
