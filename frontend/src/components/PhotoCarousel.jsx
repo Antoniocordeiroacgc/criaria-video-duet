@@ -1,22 +1,7 @@
-import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Image } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-/**
- * PhotoCarousel — carrossel de fotos com registro de timestamps.
- *
- * Quando a gravação começa (startRecording()), o carrossel começa a registrar
- * o momento exato de cada troca de foto. Esses timestamps são usados pelo
- * backend para sincronizar o vídeo final com o carrossel.
- *
- * Ref exposta:
- *   - startRecording(): inicia o registro de timestamps
- *   - stopRecording(): para o registro e retorna os timestamps
- *   - getTimestamps(): retorna os timestamps coletados
- *
- * Formato dos timestamps:
- *   [{ photoIndex: 0, startTime: 0 }, { photoIndex: 1, startTime: 5.3 }, ...]
- */
 const PhotoCarousel = forwardRef(({ photos = [] }, ref) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [objectUrls, setObjectUrls] = useState([]);
@@ -37,7 +22,6 @@ const PhotoCarousel = forwardRef(({ photos = [] }, ref) => {
     return () => urls.forEach(url => URL.revokeObjectURL(url));
   }, [photos]);
 
-  // Registra a foto atual com o tempo decorrido desde o início da gravação
   const recordTimestamp = useCallback((index) => {
     if (!isRecording || !recordingStartRef.current) return;
     const elapsed = (Date.now() - recordingStartRef.current) / 1000;
@@ -52,7 +36,6 @@ const PhotoCarousel = forwardRef(({ photos = [] }, ref) => {
   const prev = () => goTo(Math.max(0, currentIndex - 1));
   const next = () => goTo(Math.min(objectUrls.length - 1, currentIndex + 1));
 
-  // Expõe métodos para o CameraRecorder controlar o carrossel
   useImperativeHandle(ref, () => ({
     startRecording: () => {
       timestampsRef.current = [{ photoIndex: currentIndex, startTime: 0 }];
@@ -93,35 +76,37 @@ const PhotoCarousel = forwardRef(({ photos = [] }, ref) => {
           />
         </AnimatePresence>
 
-        {/* Indicador de gravação */}
         {isRecording && (
-          <div className="absolute top-3 left-3 flex items-center gap-2 bg-red-600/90 text-white px-3 py-1 rounded-full text-xs font-medium">
+          <div className="absolute top-3 left-3 flex items-center gap-2 bg-red-600/90 text-white px-3 py-1 rounded-full text-xs font-medium z-30">
             <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
             Gravando
           </div>
         )}
 
+        {/* Seta esquerda — z-30 para ficar acima do teleprompter */}
         <button
           onClick={prev}
           disabled={currentIndex === 0}
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white disabled:opacity-20 transition-all"
+          className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white disabled:opacity-20 transition-all z-30"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
 
+        {/* Seta direita — z-30 para ficar acima do teleprompter */}
         <button
           onClick={next}
           disabled={currentIndex === objectUrls.length - 1}
-          className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white disabled:opacity-20 transition-all"
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center text-white disabled:opacity-20 transition-all z-30"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
 
-        <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-medium px-2 py-1 rounded-full">
+        <div className="absolute top-3 right-3 bg-black/60 text-white text-xs font-medium px-2 py-1 rounded-full z-30">
           {currentIndex + 1} / {objectUrls.length}
         </div>
 
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+        {/* Bolinhas indicadoras — z-30 */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-30">
           {objectUrls.map((_, i) => (
             <button
               key={i}
