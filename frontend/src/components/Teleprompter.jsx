@@ -55,7 +55,7 @@ export default function Teleprompter({ text, isRecording, onClose }) {
   };
 
   return (
-    <div className="absolute inset-0 z-20 flex flex-col">
+    <div className="absolute inset-0 z-10 flex flex-col pointer-events-none">
       {/* Gradiente superior — fade para não cortar o texto bruscamente */}
       <div className="h-16 bg-gradient-to-b from-black/80 to-transparent pointer-events-none" />
 
@@ -84,7 +84,7 @@ export default function Teleprompter({ text, isRecording, onClose }) {
       <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t-2 border-primary/60 pointer-events-none" />
 
       {/* Controles */}
-      <div className="absolute bottom-20 left-0 right-0 flex items-center justify-center gap-3 px-4">
+      <div className="absolute bottom-20 left-0 right-0 flex items-center justify-center gap-3 px-4 pointer-events-auto">
         {/* Velocidade */}
         <div className="flex items-center gap-1 bg-black/70 rounded-full px-3 py-1.5">
           <button
