@@ -1,15 +1,31 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Video, Square, Circle, Camera, CameraOff, Download, UploadCloud, CheckCircle2, Pause, Play } from 'lucide-react';
+import { Video, Square, Circle, Camera, CameraOff, Download, UploadCloud, CheckCircle2, Pause, Play, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder.js';
 import { useDuetSubmission } from '@/hooks/useDuetSubmission.js';
+import Teleprompter from '@/components/Teleprompter.jsx';
 
 export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart, carouselRef, referenceVideoRef }) {
   const videoRef = useRef(null);
+  const miniPlayerRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
   const [refStartTimestamp, setRefStartTimestamp] = useState(null);
   const [refPlaying, setRefPlaying] = useState(false);
+  const [refBlobUrl, setRefBlobUrl] = useState(null);
+  const [teleprompterText, setTeleprompterText] = useState('');
+  const [showTeleprompterInput, setShowTeleprompterInput] = useState(false);
+  const [showTeleprompter, setShowTeleprompter] = useState(false);
+
+  // Cria URL do vídeo de referência para o mini player
+  useEffect(() => {
+    if (referenceMode === 'video' && referenceFile && referenceFile instanceof File) {
+      const url = URL.createObjectURL(referenceFile);
+      setRefBlobUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setRefBlobUrl(null);
+  }, [referenceFile, referenceMode]);
 
   const {
     stream,
@@ -43,6 +59,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
     setRefStartTimestamp(null);
     setRefPlaying(false);
     recordingStartTimeRef.current = null;
+    setShowTeleprompter(false);
   };
 
   const handleSendForComposition = () => {
@@ -60,14 +77,18 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
 
   // Botão "Mostrar Referência" — só aparece durante gravação de vídeo
   const handleShowReference = () => {
-    if (!referenceVideoRef?.current || refPlaying) return;
+    if (refPlaying) return;
     const elapsed = recordingStartTimeRef.current
       ? (Date.now() - recordingStartTimeRef.current) / 1000
       : 0;
     setRefStartTimestamp(elapsed);
     setRefPlaying(true);
-    referenceVideoRef.current.currentTime = 0;
-    referenceVideoRef.current.play().catch(() => {});
+    setTimeout(() => {
+      if (miniPlayerRef.current) {
+        miniPlayerRef.current.currentTime = 0;
+        miniPlayerRef.current.play().catch(() => {});
+      }
+    }, 100);
   };
 
   const handleStopCamera = () => {
@@ -79,13 +100,16 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
     recordingStartTimeRef.current = Date.now();
     setRefStartTimestamp(null);
     setRefPlaying(false);
-    // Para o vídeo de referência se estiver tocando
     if (referenceVideoRef?.current) {
       referenceVideoRef.current.pause();
       referenceVideoRef.current.currentTime = 0;
     }
     onRecordingStart?.();
     startRecording();
+    // Ativa o teleprompter se houver texto
+    if (teleprompterText.trim()) {
+      setShowTeleprompter(true);
+    }
   };
 
   useEffect(() => {
@@ -162,6 +186,29 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
           </div>
         )}
 
+        {/* Teleprompter sobreposto */}
+        {showTeleprompter && teleprompterText.trim() && (
+          <Teleprompter
+            text={teleprompterText}
+            isRecording={isRecording && !isPaused}
+            onClose={() => setShowTeleprompter(false)}
+          />
+        )}
+
+        {/* Mini player do vídeo de referência sobreposto */}
+        {refPlaying && refBlobUrl && (
+          <div className="absolute top-0 left-0 right-0 h-1/2 bg-black z-10">
+            <video
+              ref={miniPlayerRef}
+              src={refBlobUrl}
+              playsInline
+              controls
+              className="w-full h-full object-contain"
+              onEnded={() => setRefPlaying(false)}
+            />
+          </div>
+        )}
+
         {/* Botão "Mostrar Referência" — só aparece durante gravação de vídeo */}
         {isRecording && !isPaused && referenceMode === 'video' && referenceFile && (
           <div className="absolute bottom-4 left-0 right-0 flex justify-center">
@@ -194,6 +241,27 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
       )}
 
       <div className="flex flex-col gap-4">
+        {/* Campo de texto do teleprompter — só aparece antes de gravar */}
+        {!recordedBlob && !isRecording && (
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => setShowTeleprompterInput(v => !v)}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              {showTeleprompterInput ? 'Ocultar teleprompter' : 'Adicionar teleprompter (opcional)'}
+            </button>
+            {showTeleprompterInput && (
+              <textarea
+                value={teleprompterText}
+                onChange={e => setTeleprompterText(e.target.value)}
+                placeholder="Digite o texto que vai rolar na tela enquanto você grava..."
+                rows={4}
+                className="w-full rounded-xl border border-border bg-card text-foreground text-sm p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            )}
+          </div>
+        )}
         {!recordedBlob && (
           <div className="flex flex-wrap items-center justify-center gap-3">
             {!isStreamReady ? (
