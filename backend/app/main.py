@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.models import init_db
-from app.routes import upload
+from app.routes import upload, users
 from app.storage import get_s3_client
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +32,7 @@ app.add_middleware(
 )
 
 app.include_router(upload.router)
+app.include_router(users.router)
 
 
 @app.on_event("startup")

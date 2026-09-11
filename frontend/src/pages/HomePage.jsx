@@ -1,13 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Video, Sparkles, Upload, Image, Film, FileText } from 'lucide-react';
+import { Video, Sparkles, Upload, Image, Film, FileText, MessageCircle, LogOut } from 'lucide-react';
 import VideoPlayer from '@/components/VideoPlayer.jsx';
 import PhotoCarousel from '@/components/PhotoCarousel.jsx';
 import CameraRecorder from '@/components/CameraRecorder.jsx';
 import Teleprompter from '@/components/Teleprompter.jsx';
+import ContactModal from '@/components/ContactModal.jsx';
 
-export default function HomePage() {
+export default function HomePage({ user }) {
   const referenceVideoRef = useRef(null);
   const carouselRef = useRef(null);
 
@@ -16,8 +17,8 @@ export default function HomePage() {
   const [mediaMode, setMediaMode] = useState(null);
   const [uploadError, setUploadError] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
+  const [showContact, setShowContact] = useState(false);
 
-  // Teleprompter
   const [teleprompterText, setTeleprompterText] = useState('');
   const [showTeleprompterInput, setShowTeleprompterInput] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
@@ -25,6 +26,11 @@ export default function HomePage() {
 
   const videoInputRef = useRef(null);
   const photoInputRef = useRef(null);
+
+  const handleLogout = () => {
+    localStorage.removeItem('duovideo_user');
+    window.location.reload();
+  };
 
   const handleVideoUpload = (event) => {
     const file = event.target.files?.[0];
@@ -73,16 +79,34 @@ export default function HomePage() {
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
-                <Video className="w-5 h-5 text-primary" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Video className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">DuoVideo</h1>
+                  <p className="text-xs font-medium text-primary tracking-wide uppercase flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />CRIAR.IA TECNOLOGIA
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-foreground leading-none mb-1">DuoVideo</h1>
-                <p className="text-xs font-medium text-primary tracking-wide uppercase flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />CRIAR.IA TECNOLOGIA
-                </p>
-              </div>
+
+              {/* Usuário logado */}
+              {user && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground hidden sm:block">
+                    Olá, <span className="font-medium text-foreground">{user.name.split(' ')[0]}</span>
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Sair"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -104,7 +128,6 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Botão Teleprompter */}
                   <button
                     onClick={() => setShowTeleprompterInput(v => !v)}
                     className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showTeleprompterInput ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
@@ -113,7 +136,6 @@ export default function HomePage() {
                     Teleprompter
                   </button>
 
-                  {/* Botão Upar */}
                   <div className="relative">
                     <button
                       onClick={() => setShowPicker(v => !v)}
@@ -140,7 +162,6 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* Campo de texto do teleprompter */}
               {showTeleprompterInput && (
                 <div className="flex flex-col gap-2">
                   <textarea
@@ -165,7 +186,6 @@ export default function HomePage() {
               )}
 
               <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
-                {/* Container da referência com teleprompter sobreposto */}
                 <div className="relative">
                   {mediaMode === 'video' && <VideoPlayer ref={referenceVideoRef} file={referenceFile} />}
                   {mediaMode === 'photos' && <PhotoCarousel ref={carouselRef} photos={referencePhotos} />}
@@ -180,7 +200,6 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Teleprompter sobreposto na referência */}
                   {showTeleprompter && teleprompterText.trim() && (
                     <div className="absolute inset-0 rounded-xl overflow-hidden">
                       <Teleprompter
@@ -224,7 +243,6 @@ export default function HomePage() {
                   referenceVideoRef={referenceVideoRef}
                   onRecordingStart={() => {
                     carouselRef.current?.startRecording();
-                    // Ativa teleprompter se houver texto
                     if (teleprompterText.trim()) {
                       setShowTeleprompter(true);
                     }
@@ -236,12 +254,23 @@ export default function HomePage() {
           </div>
         </main>
 
-        <footer className="border-t border-border py-4 text-center">
-          <p className="text-sm text-muted-foreground tracking-wide font-medium">
-            Desenvolvido por <span className="text-primary">CRIAR.IA TECNOLOGIA</span> | criarhub.com © 2026
-          </p>
+        <footer className="border-t border-border py-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Desenvolvido por <span className="text-primary">CRIAR.IA TECNOLOGIA</span> | criarhub.com © 2026
+            </p>
+            <button
+              onClick={() => setShowContact(true)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Fale Conosco
+            </button>
+          </div>
         </footer>
       </div>
+
+      <ContactModal isOpen={showContact} onClose={() => setShowContact(false)} user={user} />
     </>
   );
 }
