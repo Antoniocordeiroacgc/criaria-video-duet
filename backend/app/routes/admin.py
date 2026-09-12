@@ -9,8 +9,8 @@ from app.models import SessionLocal
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-import os
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+from app.config import settings
+ADMIN_PASSWORD = settings.ADMIN_PASSWORD
 
 
 def _check_auth(x_admin_password: str = Header(None)):
