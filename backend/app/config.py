@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     ENV: str = Field(default="development")
     MAX_UPLOAD_MB: int = Field(default=300)  # limite de tamanho por vídeo
     MAX_VIDEO_DURATION_SECONDS: int = Field(default=180)  # 3 min, evita abuso
+    ADMIN_PASSWORD: str = Field(default="")
 
     # --- Banco de dados (Postgres) ---
     DATABASE_URL: str = Field(
