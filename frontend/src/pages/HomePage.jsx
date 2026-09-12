@@ -7,6 +7,7 @@ import PhotoCarousel from '@/components/PhotoCarousel.jsx';
 import CameraRecorder from '@/components/CameraRecorder.jsx';
 import Teleprompter from '@/components/Teleprompter.jsx';
 import ContactModal from '@/components/ContactModal.jsx';
+import FilterSelector, { FILTERS } from '@/components/FilterSelector.jsx';
 
 export default function HomePage({ user }) {
   const referenceVideoRef = useRef(null);
@@ -19,6 +20,13 @@ export default function HomePage({ user }) {
   const [showPicker, setShowPicker] = useState(false);
   const [showContact, setShowContact] = useState(false);
 
+  // Filtros
+  const [refFilter, setRefFilter] = useState('none');
+  const [camFilter, setCamFilter] = useState('none');
+  const [showRefFilters, setShowRefFilters] = useState(false);
+  const [showCamFilters, setShowCamFilters] = useState(false);
+
+  // Teleprompter
   const [teleprompterText, setTeleprompterText] = useState('');
   const [showTeleprompterInput, setShowTeleprompterInput] = useState(false);
   const [showTeleprompter, setShowTeleprompter] = useState(false);
@@ -67,6 +75,8 @@ export default function HomePage({ user }) {
     setShowPicker(false);
   };
 
+  const refFilterCss = FILTERS.find(f => f.id === refFilter)?.css || 'none';
+  const camFilterCss = FILTERS.find(f => f.id === camFilter)?.css || 'none';
   const referenceForCamera = mediaMode === 'photos' ? referencePhotos : referenceFile;
 
   return (
@@ -91,18 +101,12 @@ export default function HomePage({ user }) {
                   </p>
                 </div>
               </div>
-
-              {/* Usuário logado */}
               {user && (
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground hidden sm:block">
                     Olá, <span className="font-medium text-foreground">{user.name.split(' ')[0]}</span>
                   </span>
-                  <button
-                    onClick={handleLogout}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    title="Sair"
-                  >
+                  <button onClick={handleLogout} className="text-muted-foreground hover:text-foreground transition-colors" title="Sair">
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
@@ -114,7 +118,7 @@ export default function HomePage({ user }) {
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
 
-            {/* Coluna 1 — Referência + Teleprompter */}
+            {/* Coluna 1 — Referência */}
             <motion.section initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }} className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -132,8 +136,7 @@ export default function HomePage({ user }) {
                     onClick={() => setShowTeleprompterInput(v => !v)}
                     className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showTeleprompterInput ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
                   >
-                    <FileText className="w-3.5 h-3.5" />
-                    Teleprompter
+                    <FileText className="w-3.5 h-3.5" />Teleprompter
                   </button>
 
                   <div className="relative">
@@ -143,7 +146,6 @@ export default function HomePage({ user }) {
                     >
                       <Upload className="w-4 h-4" />Upar
                     </button>
-
                     {showPicker && (
                       <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-44">
                         <button onClick={() => { setShowPicker(false); videoInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
@@ -155,7 +157,6 @@ export default function HomePage({ user }) {
                         </button>
                       </div>
                     )}
-
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
                     <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosUpload} />
                   </div>
@@ -171,11 +172,6 @@ export default function HomePage({ user }) {
                     rows={4}
                     className="w-full rounded-xl border border-border bg-card text-foreground text-sm p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
                   />
-                  {teleprompterText.trim() && (
-                    <p className="text-xs text-muted-foreground">
-                      O teleprompter vai aparecer sobreposto à referência quando você começar a gravar.
-                    </p>
-                  )}
                 </div>
               )}
 
@@ -187,29 +183,41 @@ export default function HomePage({ user }) {
 
               <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
                 <div className="relative">
-                  {mediaMode === 'video' && <VideoPlayer ref={referenceVideoRef} file={referenceFile} />}
-                  {mediaMode === 'photos' && <PhotoCarousel ref={carouselRef} photos={referencePhotos} />}
-                  {!mediaMode && (
-                    <div className="w-full aspect-[9/16] max-h-[70vh] rounded-xl bg-card border border-border/50 flex flex-col items-center justify-center gap-3 p-6 text-center">
-                      <div className="flex gap-4 text-muted-foreground">
-                        <Film className="w-10 h-10" />
-                        <Image className="w-10 h-10" />
+                  {/* Aplica filtro CSS no container da referência */}
+                  <div style={{ filter: refFilterCss, transition: 'filter 0.3s ease' }}>
+                    {mediaMode === 'video' && <VideoPlayer ref={referenceVideoRef} file={referenceFile} />}
+                    {mediaMode === 'photos' && <PhotoCarousel ref={carouselRef} photos={referencePhotos} />}
+                    {!mediaMode && (
+                      <div className="w-full aspect-[9/16] max-h-[70vh] rounded-xl bg-card border border-border/50 flex flex-col items-center justify-center gap-3 p-6 text-center">
+                        <div className="flex gap-4 text-muted-foreground">
+                          <Film className="w-10 h-10" />
+                          <Image className="w-10 h-10" />
+                        </div>
+                        <p className="text-muted-foreground text-sm font-medium">Nenhuma mídia selecionada</p>
+                        <p className="text-muted-foreground/70 text-xs">Clique em "Upar" para escolher vídeo ou fotos</p>
                       </div>
-                      <p className="text-muted-foreground text-sm font-medium">Nenhuma mídia selecionada</p>
-                      <p className="text-muted-foreground/70 text-xs">Clique em "Upar" para escolher vídeo ou fotos</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {showTeleprompter && teleprompterText.trim() && (
                     <div className="absolute inset-0 rounded-xl overflow-hidden">
-                      <Teleprompter
-                        text={teleprompterText}
-                        isRecording={isRecordingActive}
-                        onClose={() => setShowTeleprompter(false)}
-                      />
+                      <Teleprompter text={teleprompterText} isRecording={isRecordingActive} onClose={() => setShowTeleprompter(false)} />
                     </div>
                   )}
                 </div>
+
+                {/* Filtros da referência */}
+                {mediaMode && (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => setShowRefFilters(v => !v)}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    >
+                      🎨 {showRefFilters ? 'Ocultar filtros' : 'Filtros de cor'}
+                    </button>
+                    {showRefFilters && <FilterSelector value={refFilter} onChange={setRefFilter} />}
+                  </div>
+                )}
 
                 {mediaMode === 'video' && referenceFile && (
                   <p className="text-xs text-muted-foreground text-center px-2 truncate">
@@ -235,20 +243,30 @@ export default function HomePage({ user }) {
                   <p className="text-sm text-muted-foreground">Ligue a câmera e grave seu vídeo duet.</p>
                 </div>
               </div>
-              <div className="w-full max-w-2xl mx-auto">
+              <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
                 <CameraRecorder
                   referenceFile={referenceForCamera}
                   referenceMode={mediaMode}
                   carouselRef={carouselRef}
                   referenceVideoRef={referenceVideoRef}
+                  camFilterCss={camFilterCss}
                   onRecordingStart={() => {
                     carouselRef.current?.startRecording();
-                    if (teleprompterText.trim()) {
-                      setShowTeleprompter(true);
-                    }
+                    if (teleprompterText.trim()) setShowTeleprompter(true);
                     setIsRecordingActive(true);
                   }}
                 />
+
+                {/* Filtros da câmera */}
+                <div className="flex flex-col gap-2 mt-1">
+                  <button
+                    onClick={() => setShowCamFilters(v => !v)}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                  >
+                    🎨 {showCamFilters ? 'Ocultar filtros da câmera' : 'Filtros da câmera'}
+                  </button>
+                  {showCamFilters && <FilterSelector value={camFilter} onChange={setCamFilter} />}
+                </div>
               </div>
             </motion.section>
           </div>
@@ -259,12 +277,8 @@ export default function HomePage({ user }) {
             <p className="text-sm text-muted-foreground">
               Desenvolvido por <span className="text-primary">CRIAR.IA TECNOLOGIA</span> | criarhub.com © 2026
             </p>
-            <button
-              onClick={() => setShowContact(true)}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Fale Conosco
+            <button onClick={() => setShowContact(true)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <MessageCircle className="w-4 h-4" />Fale Conosco
             </button>
           </div>
         </footer>
