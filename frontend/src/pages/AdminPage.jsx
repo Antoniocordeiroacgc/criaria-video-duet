@@ -70,13 +70,13 @@ export default function AdminPage() {
   const formatDate = (str) => str ? new Date(str).toLocaleString('pt-BR') : '-';
 
   const statusIcon = (s) => {
-    if (s === 'done') return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-    if (s === 'failed') return <XCircle className="w-4 h-4 text-destructive" />;
-    return <Clock className="w-4 h-4 text-yellow-500" />;
-  };
-
-  const statusLabel = (s) => ({ done: 'Concluído', failed: 'Erro', processing: 'Processando', pending: 'Na fila', uploading: 'Enviando' }[s] || s);
-  const statusColor = (s) => ({ done: 'text-green-500', failed: 'text-destructive', processing: 'text-yellow-500' }[s] || 'text-muted-foreground');
+  const sl = s?.toLowerCase();
+  if (sl === 'done') return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+  if (sl === 'failed') return <XCircle className="w-4 h-4 text-destructive" />;
+  return <Clock className="w-4 h-4 text-yellow-500" />;
+};
+const statusLabel = (s) => ({ done: 'Concluído', failed: 'Erro', processing: 'Processando', pending: 'Na fila', uploading: 'Enviando' }[s?.toLowerCase()] || s);
+const statusColor = (s) => ({ done: 'text-green-500', failed: 'text-destructive', processing: 'text-yellow-500' }[s?.toLowerCase()] || 'text-muted-foreground');
 
   if (!authed) {
     return (
@@ -163,7 +163,7 @@ export default function AdminPage() {
                     <span className={`text-sm font-medium ${statusColor(j.status)}`}>{statusLabel(j.status)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {j.status === 'done' && (
+                    {j.status?.toLowerCase() === 'done' && (
                       <a
                         href={`${API_BASE}/jobs/${j.id}/file`}
                         download={`duet-${j.id.slice(0, 8)}.mp4`}
