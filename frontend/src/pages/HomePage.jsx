@@ -204,20 +204,24 @@ export default function HomePage({ user }) {
                       <Teleprompter text={teleprompterText} isRecording={isRecordingActive} onClose={() => setShowTeleprompter(false)} />
                     </div>
                   )}
-                </div>
 
-                                {/* Filtros da referência — botão flutuante */}
-                {mediaMode && (
-                  <div className="flex flex-col gap-2 mt-1">
-                    <button
-                      onClick={() => setShowRefFilters(v => !v)}
-                      className={`self-start flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border hover:border-primary hover:text-primary'}`}
-                    >
-                      🎨 Filtros
-                    </button>
-                    {showRefFilters && <FilterSelector value={refFilter} onChange={setRefFilter} />}
-                  </div>
-                )}
+                  {/* Botão filtros flutuante — visível em qualquer dispositivo */}
+                  {mediaMode && (
+                    <div className="absolute bottom-3 left-3 z-20 flex flex-col-reverse gap-2 items-start">
+                      {showRefFilters && (
+                        <div className="bg-black/80 backdrop-blur-sm rounded-xl p-2 mb-1">
+                          <FilterSelector value={refFilter} onChange={setRefFilter} />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => setShowRefFilters(v => !v)}
+                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm transition-all ${showRefFilters ? 'bg-primary text-white' : 'bg-black/70 text-white'}`}
+                      >
+                        🎨 Filtros
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {mediaMode === 'video' && referenceFile && (
                   <p className="text-xs text-muted-foreground text-center px-2 truncate">
@@ -261,9 +265,9 @@ export default function HomePage({ user }) {
                 <div className="flex flex-col gap-2 mt-1">
                   <button
                     onClick={() => setShowCamFilters(v => !v)}
-                    className={`self-start flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${showCamFilters ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border hover:border-primary hover:text-primary'}`}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                   >
-                    🎨 Filtros câmera
+                    🎨 {showCamFilters ? 'Ocultar filtros da câmera' : 'Filtros da câmera'}
                   </button>
                   {showCamFilters && <FilterSelector value={camFilter} onChange={setCamFilter} />}
                 </div>
