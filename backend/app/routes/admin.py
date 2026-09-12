@@ -10,11 +10,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 from app.config import settings
-ADMIN_PASSWORD = settings.ADMIN_PASSWORD
 
 
 def _check_auth(x_admin_password: str = Header(None)):
-    if x_admin_password != ADMIN_PASSWORD:
+    if x_admin_password != settings.ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Senha incorreta.")
 
 
