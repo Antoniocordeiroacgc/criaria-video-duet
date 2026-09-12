@@ -25,8 +25,8 @@ def get_stats(x_admin_password: str = Header(None)):
         users = db.execute(text("SELECT COUNT(*) FROM users")).fetchone()[0]
         messages = db.execute(text("SELECT COUNT(*) FROM contact_messages")).fetchone()[0]
         jobs_total = db.execute(text("SELECT COUNT(*) FROM render_jobs")).fetchone()[0]
-        jobs_done = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status = 'done'")).fetchone()[0]
-        jobs_failed = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status = 'failed'")).fetchone()[0]
+        jobs_done = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status = 'done'::jobstatus")).fetchone()[0]
+        jobs_failed = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status = 'failed'::jobstatus")).fetchone()[0]
         return {
             "total_users": users,
             "total_messages": messages,
