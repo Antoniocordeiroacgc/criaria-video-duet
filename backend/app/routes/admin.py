@@ -9,11 +9,11 @@ from app.models import SessionLocal
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-from app.config import settings
+ADMIN_PASSWORD = "criar@1530"
 
 
 def _check_auth(x_admin_password: str = Header(None)):
-    if x_admin_password != "criar@1530":
+    if x_admin_password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Senha incorreta.")
 
 
@@ -25,8 +25,8 @@ def get_stats(x_admin_password: str = Header(None)):
         users = db.execute(text("SELECT COUNT(*) FROM users")).fetchone()[0]
         messages = db.execute(text("SELECT COUNT(*) FROM contact_messages")).fetchone()[0]
         jobs_total = db.execute(text("SELECT COUNT(*) FROM render_jobs")).fetchone()[0]
-        jobs_done = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status::text = 'done'")).fetchone()[0]
-        jobs_failed = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status::text = 'failed'")).fetchone()[0]
+        jobs_done = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status = 'done'")).fetchone()[0]
+        jobs_failed = db.execute(text("SELECT COUNT(*) FROM render_jobs WHERE status = 'failed'")).fetchone()[0]
         return {
             "total_users": users,
             "total_messages": messages,
@@ -78,6 +78,18 @@ def delete_message(msg_id: int, x_admin_password: str = Header(None)):
     db = SessionLocal()
     try:
         db.execute(text("DELETE FROM contact_messages WHERE id = :id"), {"id": msg_id})
+        db.commit()
+        return {"ok": True}
+    finally:
+        db.close()
+
+
+@router.delete("/jobs/{job_id}")
+def delete_job(job_id: str, x_admin_password: str = Header(None)):
+    _check_auth(x_admin_password)
+    db = SessionLocal()
+    try:
+        db.execute(text("DELETE FROM render_jobs WHERE id = :id"), {"id": job_id})
         db.commit()
         return {"ok": True}
     finally:

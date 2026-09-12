@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, MessageCircle, Trash2, LogOut, RefreshCw, Shield, Video, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Users, MessageCircle, Trash2, LogOut, RefreshCw, Shield, Video, CheckCircle2, XCircle, Clock, Download } from 'lucide-react';
 
 const API = '/api/admin';
+const API_BASE = '/api';
 
 export default function AdminPage() {
   const [password, setPassword] = useState('');
@@ -57,6 +58,13 @@ export default function AdminPage() {
     await fetch(`${API}/messages/${id}`, { method: 'DELETE', headers });
     setMessages(m => m.filter(x => x.id !== id));
     setStats(s => ({ ...s, total_messages: s.total_messages - 1 }));
+  };
+
+  const deleteJob = async (id) => {
+    if (!confirm('Excluir este duet?')) return;
+    await fetch(`${API}/jobs/${id}`, { method: 'DELETE', headers });
+    setJobs(j => j.filter(x => x.id !== id));
+    setStats(s => ({ ...s, total_jobs: s.total_jobs - 1 }));
   };
 
   const formatDate = (str) => str ? new Date(str).toLocaleString('pt-BR') : '-';
@@ -154,7 +162,23 @@ export default function AdminPage() {
                     {statusIcon(j.status)}
                     <span className={`text-sm font-medium ${statusColor(j.status)}`}>{statusLabel(j.status)}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{formatDate(j.created_at)}</span>
+                  <div className="flex items-center gap-2">
+                    {j.status === 'done' && (
+                      <a
+                        href={`${API_BASE}/jobs/${j.id}/file`}
+                        download={`duet-${j.id.slice(0, 8)}.mp4`}
+                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                        title="Baixar duet"
+                      >
+                        <Download className="w-4 h-4" />
+                        Baixar
+                      </a>
+                    )}
+                    <button onClick={() => deleteJob(j.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Excluir">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs text-muted-foreground">{formatDate(j.created_at)}</span>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="bg-muted px-2 py-0.5 rounded-full">{j.reference_type === 'image' ? `📷 ${j.reference_count} foto(s)` : '🎬 Vídeo'}</span>
