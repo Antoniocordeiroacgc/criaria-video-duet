@@ -13,7 +13,7 @@ from app.config import settings
 
 
 def _check_auth(x_admin_password: str = Header(None)):
-    if x_admin_password != settings.ADMIN_PASSWORD:
+    if x_admin_password != "criar@1530":
         raise HTTPException(status_code=401, detail="Senha incorreta.")
 
 
