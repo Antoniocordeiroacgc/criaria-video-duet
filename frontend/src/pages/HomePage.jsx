@@ -206,14 +206,14 @@ export default function HomePage({ user }) {
                   )}
                 </div>
 
-                {/* Filtros da referência */}
+                                {/* Filtros da referência — botão flutuante */}
                 {mediaMode && (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 mt-1">
                     <button
                       onClick={() => setShowRefFilters(v => !v)}
-                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                      className={`self-start flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border hover:border-primary hover:text-primary'}`}
                     >
-                      🎨 {showRefFilters ? 'Ocultar filtros' : 'Filtros de cor'}
+                      🎨 Filtros
                     </button>
                     {showRefFilters && <FilterSelector value={refFilter} onChange={setRefFilter} />}
                   </div>
@@ -261,9 +261,9 @@ export default function HomePage({ user }) {
                 <div className="flex flex-col gap-2 mt-1">
                   <button
                     onClick={() => setShowCamFilters(v => !v)}
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                    className={`self-start flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${showCamFilters ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border hover:border-primary hover:text-primary'}`}
                   >
-                    🎨 {showCamFilters ? 'Ocultar filtros da câmera' : 'Filtros da câmera'}
+                    🎨 Filtros câmera
                   </button>
                   {showCamFilters && <FilterSelector value={camFilter} onChange={setCamFilter} />}
                 </div>
