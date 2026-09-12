@@ -4,6 +4,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://web-production-dae907.up.railway.app/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
