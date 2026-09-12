@@ -132,6 +132,23 @@ export default function HomePage({ user }) {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Filtros — no header sempre visível */}
+                  {mediaMode && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowRefFilters(v => !v)}
+                        className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
+                      >
+                        🎨
+                      </button>
+                      {showRefFilters && (
+                        <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl p-3 w-72">
+                          <FilterSelector value={refFilter} onChange={setRefFilter} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     onClick={() => setShowTeleprompterInput(v => !v)}
                     className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showTeleprompterInput ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
@@ -204,24 +221,24 @@ export default function HomePage({ user }) {
                       <Teleprompter text={teleprompterText} isRecording={isRecordingActive} onClose={() => setShowTeleprompter(false)} />
                     </div>
                   )}
-
-                  {/* Botão filtros flutuante — visível em qualquer dispositivo */}
-                  {mediaMode && (
-                    <div className="absolute bottom-3 left-3 z-20 flex flex-col-reverse gap-2 items-start">
-                      {showRefFilters && (
-                        <div className="bg-black/80 backdrop-blur-sm rounded-xl p-2 mb-1">
-                          <FilterSelector value={refFilter} onChange={setRefFilter} />
-                        </div>
-                      )}
-                      <button
-                        onClick={() => setShowRefFilters(v => !v)}
-                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full backdrop-blur-sm transition-all ${showRefFilters ? 'bg-primary text-white' : 'bg-black/70 text-white'}`}
-                      >
-                        🎨 Filtros
-                      </button>
-                    </div>
-                  )}
                 </div>
+
+                {/* Filtros — sempre visível abaixo da mídia */}
+                {mediaMode && (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => setShowRefFilters(v => !v)}
+                      className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border transition-all w-full ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-card text-foreground border-border hover:border-primary'}`}
+                    >
+                      🎨 <span>{showRefFilters ? 'Ocultar filtros' : 'Filtros de cor'}</span>
+                    </button>
+                    {showRefFilters && (
+                      <div className="bg-card border border-border rounded-xl p-3">
+                        <FilterSelector value={refFilter} onChange={setRefFilter} />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {mediaMode === 'video' && referenceFile && (
                   <p className="text-xs text-muted-foreground text-center px-2 truncate">
