@@ -155,16 +155,13 @@ export default function HomePage({ user }) {
                         <button onClick={() => { setShowPicker(false); photoInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
                           <Image className="w-4 h-4 text-primary" />Fotos (carrossel)
                         </button>
-                        {mediaMode && (
-                          <>
-                            <div className="border-t border-border" />
-                            <button onClick={() => { setShowPicker(false); setShowRefFilters(v => !v); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
-                              🎨 Filtros de cor
-                            </button>
-                          </>
-                        )}
+                        <div className="border-t border-border" />
+                        <button onClick={() => { setShowPicker(false); setShowRefFilters(v => !v); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
+                          🎨 Filtros de cor
+                        </button>
                       </div>
                     )}
+
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
                     <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosUpload} />
                   </div>
