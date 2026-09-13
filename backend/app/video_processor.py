@@ -83,6 +83,7 @@ def _convert_to_mp4(input_path: str, output_path: str) -> None:
         "-i", input_path,
         "-c:v", "libx264",
         "-preset", "veryfast",
+        "-x264-params", "threads=2",
         "-crf", "23",
         "-pix_fmt", "yuv420p",
         "-r", "30",
