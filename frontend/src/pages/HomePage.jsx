@@ -89,7 +89,7 @@ export default function HomePage({ user }) {
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
                   <Video className="w-5 h-5 text-primary" />
@@ -132,21 +132,6 @@ export default function HomePage({ user }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* Filtros — no header sempre visível */}
-                  <div className="relative">
-                      <button
-                        onClick={() => setShowRefFilters(v => !v)}
-                        className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
-                      >
-                        🎨
-                      </button>
-                      {showRefFilters && (
-                        <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl p-3 w-72">
-                          <FilterSelector value={refFilter} onChange={setRefFilter} />
-                        </div>
-                      )}
-                    </div>
-                  
                   <button
                     onClick={() => setShowTeleprompterInput(v => !v)}
                     className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showTeleprompterInput ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
@@ -162,7 +147,7 @@ export default function HomePage({ user }) {
                       <Upload className="w-4 h-4" />Upar
                     </button>
                     {showPicker && (
-                      <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-44">
+                      <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-52">
                         <button onClick={() => { setShowPicker(false); videoInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
                           <Film className="w-4 h-4 text-primary" />Vídeo
                         </button>
@@ -170,6 +155,14 @@ export default function HomePage({ user }) {
                         <button onClick={() => { setShowPicker(false); photoInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
                           <Image className="w-4 h-4 text-primary" />Fotos (carrossel)
                         </button>
+                        {mediaMode && (
+                          <>
+                            <div className="border-t border-border" />
+                            <button onClick={() => { setShowPicker(false); setShowRefFilters(v => !v); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
+                              🎨 Filtros de cor
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
@@ -221,20 +214,11 @@ export default function HomePage({ user }) {
                   )}
                 </div>
 
-                {/* Filtros — sempre visível abaixo da mídia */}
-                {mediaMode && (
-                  <div className="flex flex-col gap-2">
-                    <button
-                      onClick={() => setShowRefFilters(v => !v)}
-                      className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl border transition-all w-full ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-card text-foreground border-border hover:border-primary'}`}
-                    >
-                      🎨 <span>{showRefFilters ? 'Ocultar filtros' : 'Filtros de cor'}</span>
-                    </button>
-                    {showRefFilters && (
-                      <div className="bg-card border border-border rounded-xl p-3">
-                        <FilterSelector value={refFilter} onChange={setRefFilter} />
-                      </div>
-                    )}
+                {/* Seletor de filtros — aparece quando ativado pelo menu Upar */}
+                {showRefFilters && mediaMode && (
+                  <div className="bg-card border border-border rounded-xl p-3">
+                    <p className="text-xs text-muted-foreground mb-2 font-medium">🎨 Filtros de cor</p>
+                    <FilterSelector value={refFilter} onChange={setRefFilter} />
                   </div>
                 )}
 
