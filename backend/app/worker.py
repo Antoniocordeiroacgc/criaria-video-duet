@@ -210,11 +210,19 @@ def process_duet_job(self, job_id: str):
             job.progress_pct = 60
             db.commit()
 
+            # Download da música se existir
+            music_local = None
+            if hasattr(job, 'music_file_key') and job.music_file_key:
+                ext = job.music_file_key.split(".")[-1]
+                music_local = str(tmp_path / f"music.{ext}")
+                download_to_file(job.music_file_key, music_local)
+
             compose_duet(
                 reference_path=ref_for_compose,
                 camera_path=cam_local,
                 output_path=out_local,
                 layout=job.layout.value if hasattr(job.layout, "value") else job.layout,
+                music_path=music_local,
             )
             job.progress_pct = 85
             db.commit()

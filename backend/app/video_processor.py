@@ -11,8 +11,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-TARGET_WIDTH = 720
-TARGET_HEIGHT_HALF = 640
+TARGET_WIDTH = 1080
+TARGET_HEIGHT_HALF = 960
 
 
 class FFmpegError(Exception):
@@ -83,7 +83,6 @@ def _convert_to_mp4(input_path: str, output_path: str) -> None:
         "-i", input_path,
         "-c:v", "libx264",
         "-preset", "veryfast",
-        "-x264-params", "threads=2",
         "-crf", "23",
         "-pix_fmt", "yuv420p",
         "-r", "30",
@@ -102,6 +101,7 @@ def compose_duet(
     output_path: str,
     layout: str = "top_bottom",
     watermark_text: str | None = None,
+    music_path: str | None = None,
 ) -> None:
     watermark_text = watermark_text or settings.WATERMARK_TEXT
 
@@ -140,37 +140,68 @@ def compose_duet(
     else:
         raise ValueError(f"Layout inválido: {layout}")
 
-    # Grava primeiro em formato TS (não precisa de moov atom)
     ts_output = output_path.replace(".mp4", ".ts")
 
-    cmd = [
-        "ffmpeg", "-y",
-        "-threads", "2",
-        "-i", ref_converted,
-        "-i", cam_converted,
-        "-i", fixed_audio_path,
-        "-filter_complex", filter_complex,
-        "-map", "[final_v]",
-        "-map", "2:a",
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",
-        "-r", "30",
-        "-threads", "2",
-        "-max_muxing_queue_size", "9999",
-        "-c:a", "aac",
-        "-ar", "44100",
-        "-ac", "2",
-        "-b:a", "128k",
-        "-shortest",
-        "-f", "mpegts",
-        ts_output,
-    ]
+    # Se tem música, mistura com o áudio da câmera
+    if music_path:
+        audio_filter = (
+            f"[2:a]volume=0.9[cam_a];"
+            f"[3:a]volume=0.4[music_a];"
+            f"[cam_a][music_a]amix=inputs=2:duration=first[final_a]"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-threads", "2",
+            "-i", ref_converted,
+            "-i", cam_converted,
+            "-i", fixed_audio_path,
+            "-i", music_path,
+            "-filter_complex", filter_complex + ";" + audio_filter,
+            "-map", "[final_v]",
+            "-map", "[final_a]",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            "-r", "30",
+            "-threads", "2",
+            "-max_muxing_queue_size", "9999",
+            "-c:a", "aac",
+            "-ar", "44100",
+            "-ac", "2",
+            "-b:a", "128k",
+            "-shortest",
+            "-f", "mpegts",
+            ts_output,
+        ]
+    else:
+        cmd = [
+            "ffmpeg", "-y",
+            "-threads", "2",
+            "-i", ref_converted,
+            "-i", cam_converted,
+            "-i", fixed_audio_path,
+            "-filter_complex", filter_complex,
+            "-map", "[final_v]",
+            "-map", "2:a",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            "-r", "30",
+            "-threads", "2",
+            "-max_muxing_queue_size", "9999",
+            "-c:a", "aac",
+            "-ar", "44100",
+            "-ac", "2",
+            "-b:a", "128k",
+            "-shortest",
+            "-f", "mpegts",
+            ts_output,
+        ]
 
     _run_ffmpeg(cmd, check_frames=True)
 
-    # Converte TS para MP4 com faststart (garante moov atom no início)
     mp4_cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
@@ -179,7 +210,7 @@ def compose_duet(
         "-movflags", "+faststart",
         output_path,
     ]
-    _run_ffmpeg(mp4_cmd, check_frames=True)
+    _run_ffmpeg(mp4_cmd)
 
     try:
         Path(ts_output).unlink()

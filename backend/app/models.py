@@ -39,8 +39,8 @@ class RenderJob(Base):
     reference_keys_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     camera_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     output_video_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    music_file_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
-    # Timestamps do carrossel para sincronização
     photo_timestamps: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
