@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder.js';
 import { useDuetSubmission } from '@/hooks/useDuetSubmission.js';
 
-export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart, carouselRef, referenceVideoRef, camFilterCss = 'none' }) {
+export default function CameraRecorder({ onRecordingComplete, referenceFile, referenceMode, onRecordingStart, carouselRef, referenceVideoRef, camFilterCss = "none", musicFile = null }) {
   const videoRef = useRef(null);
   const miniPlayerRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
@@ -31,7 +31,7 @@ export default function CameraRecorder({ onRecordingComplete, referenceFile, ref
     if (!referenceFile) return;
     const files = Array.isArray(referenceFile) ? referenceFile : [referenceFile];
     const photoTimestamps = carouselRef?.current?.getTimestamps() || null;
-    submitDuet({ referenceFiles: files, cameraBlob: recordedBlob, layout: 'top_bottom', photoTimestamps, refStartTimestamp });
+    submitDuet({ referenceFiles: files, cameraBlob: recordedBlob, layout: "top_bottom", photoTimestamps, refStartTimestamp, musicFile });
   };
 
   const handleShowReference = () => {

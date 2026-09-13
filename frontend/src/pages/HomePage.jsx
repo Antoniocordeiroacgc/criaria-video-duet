@@ -34,6 +34,9 @@ export default function HomePage({ user }) {
 
   const videoInputRef = useRef(null);
   const photoInputRef = useRef(null);
+  const musicInputRef = useRef(null);
+
+  const [musicFile, setMusicFile] = useState(null);
 
   const handleLogout = () => {
     localStorage.removeItem('duovideo_user');
@@ -77,6 +80,12 @@ export default function HomePage({ user }) {
 
   const refFilterCss = FILTERS.find(f => f.id === refFilter)?.css || 'none';
   const camFilterCss = FILTERS.find(f => f.id === camFilter)?.css || 'none';
+  const handleMusicUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setMusicFile(file);
+  };
+
   const referenceForCamera = mediaMode === 'photos' ? referencePhotos : referenceFile;
 
   return (
@@ -156,14 +165,18 @@ export default function HomePage({ user }) {
                           <Image className="w-4 h-4 text-primary" />Fotos (carrossel)
                         </button>
                         <div className="border-t border-border" />
+                        <button onClick={() => { setShowPicker(false); musicInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
+                          🎵 Música de fundo
+                        </button>
+                        <div className="border-t border-border" />
                         <button onClick={() => { setShowPicker(false); setShowRefFilters(v => !v); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
                           🎨 Filtros de cor
                         </button>
                       </div>
                     )}
-
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
                     <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosUpload} />
+                    <input ref={musicInputRef} type="file" accept="audio/*" className="hidden" onChange={handleMusicUpload} />
                   </div>
                 </div>
               </div>
@@ -229,6 +242,14 @@ export default function HomePage({ user }) {
                     <span className="font-medium text-foreground">{referencePhotos.length} fotos</span> carregadas
                   </p>
                 )}
+
+                {musicFile && (
+                  <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
+                    <span className="text-sm">🎵</span>
+                    <span className="text-xs text-foreground font-medium truncate flex-1">{musicFile.name}</span>
+                    <button onClick={() => setMusicFile(null)} className="text-muted-foreground hover:text-destructive text-xs">✕</button>
+                  </div>
+                )}
               </div>
             </motion.section>
 
@@ -250,6 +271,7 @@ export default function HomePage({ user }) {
                   carouselRef={carouselRef}
                   referenceVideoRef={referenceVideoRef}
                   camFilterCss={camFilterCss}
+                  musicFile={musicFile}
                   onRecordingStart={() => {
                     carouselRef.current?.startRecording();
                     if (teleprompterText.trim()) setShowTeleprompter(true);

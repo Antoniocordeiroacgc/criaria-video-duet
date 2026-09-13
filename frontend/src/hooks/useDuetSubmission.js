@@ -11,47 +11,24 @@ export function useDuetSubmission() {
   const pollRef = useRef(null);
 
   const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
 
   const pollStatus = useCallback((id) => {
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/jobs/${id}`, {
-          headers: { 'ngrok-skip-browser-warning': 'true' },
-        });
+        const res = await fetch(`${API_BASE_URL}/jobs/${id}`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
         if (!res.ok) throw new Error('Falha ao consultar status do job.');
         const data = await res.json();
         setProgress(data.progress_pct ?? 0);
-        if (data.status === 'done') {
-          stopPolling();
-          setDownloadUrl(`${API_BASE_URL}/jobs/${id}/file`);
-          setStatus('done');
-        } else if (data.status === 'failed') {
-          stopPolling();
-          setErrorMessage(data.error_message || 'Falha ao processar o vídeo.');
-          setStatus('error');
-        } else {
-          setStatus('processing');
-        }
-      } catch (err) {
-        stopPolling();
-        setErrorMessage(err.message);
-        setStatus('error');
-      }
+        if (data.status === 'done') { stopPolling(); setDownloadUrl(`${API_BASE_URL}/jobs/${id}/file`); setStatus('done'); }
+        else if (data.status === 'failed') { stopPolling(); setErrorMessage(data.error_message || 'Falha ao processar o vídeo.'); setStatus('error'); }
+        else { setStatus('processing'); }
+      } catch (err) { stopPolling(); setErrorMessage(err.message); setStatus('error'); }
     }, 2000);
   }, [stopPolling]);
 
-  const submitDuet = useCallback(async ({
-    referenceFiles,
-    cameraBlob,
-    layout = 'top_bottom',
-    photoTimestamps = null,
-    refStartTimestamp = null,
-  }) => {
+  const submitDuet = useCallback(async ({ referenceFiles, cameraBlob, layout = 'top_bottom', photoTimestamps = null, refStartTimestamp = null, musicFile = null }) => {
     setStatus('uploading');
     setProgress(0);
     setErrorMessage(null);
@@ -61,50 +38,23 @@ export function useDuetSubmission() {
       const formData = new FormData();
       const [firstFile, ...extraFiles] = referenceFiles;
       formData.append('reference_video', firstFile, firstFile.name || 'reference_0');
-      extraFiles.forEach((file, i) => {
-        formData.append('reference_photos', file, file.name || `photo_${i + 1}`);
-      });
+      extraFiles.forEach((file, i) => formData.append('reference_photos', file, file.name || `photo_${i + 1}`));
       formData.append('camera_video', cameraBlob, `camera-${Date.now()}.${cameraBlob.type?.includes('webm') ? 'webm' : 'mp4'}`);
       formData.append('layout', layout);
+      if (photoTimestamps && photoTimestamps.length > 0) formData.append('photo_timestamps', JSON.stringify(photoTimestamps));
+      if (refStartTimestamp !== null) formData.append('ref_start_timestamp', String(refStartTimestamp));
+      if (musicFile) formData.append('music_file', musicFile, musicFile.name);
 
-      if (photoTimestamps && photoTimestamps.length > 0) {
-        formData.append('photo_timestamps', JSON.stringify(photoTimestamps));
-      }
-
-      // Timestamp de quando o vídeo de referência começou a tocar durante a gravação
-      if (refStartTimestamp !== null) {
-        formData.append('ref_start_timestamp', String(refStartTimestamp));
-      }
-
-      const res = await fetch(`${API_BASE_URL}/jobs`, {
-        method: 'POST',
-        headers: { 'ngrok-skip-browser-warning': 'true' },
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.detail || 'Falha ao enviar arquivos para o servidor.');
-      }
-
+      const res = await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true' }, body: formData });
+      if (!res.ok) { const errBody = await res.json().catch(() => ({})); throw new Error(errBody.detail || 'Falha ao enviar arquivos para o servidor.'); }
       const data = await res.json();
       setJobId(data.job_id);
       setStatus('processing');
       pollStatus(data.job_id);
-    } catch (err) {
-      setErrorMessage(err.message);
-      setStatus('error');
-    }
+    } catch (err) { setErrorMessage(err.message); setStatus('error'); }
   }, [pollStatus]);
 
-  const reset = useCallback(() => {
-    stopPolling();
-    setStatus('idle');
-    setProgress(0);
-    setJobId(null);
-    setDownloadUrl(null);
-    setErrorMessage(null);
-  }, [stopPolling]);
+  const reset = useCallback(() => { stopPolling(); setStatus('idle'); setProgress(0); setJobId(null); setDownloadUrl(null); setErrorMessage(null); }, [stopPolling]);
 
   return { status, progress, jobId, downloadUrl, errorMessage, submitDuet, reset };
 }
