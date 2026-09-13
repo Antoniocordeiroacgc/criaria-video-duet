@@ -133,8 +133,7 @@ export default function HomePage({ user }) {
 
                 <div className="flex items-center gap-2">
                   {/* Filtros — no header sempre visível */}
-                  {mediaMode && (
-                    <div className="relative">
+                  <div className="relative">
                       <button
                         onClick={() => setShowRefFilters(v => !v)}
                         className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showRefFilters ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
@@ -147,8 +146,7 @@ export default function HomePage({ user }) {
                         </div>
                       )}
                     </div>
-                  )}
-
+                  
                   <button
                     onClick={() => setShowTeleprompterInput(v => !v)}
                     className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors ${showTeleprompterInput ? 'bg-primary text-white border-primary' : 'bg-secondary text-secondary-foreground border-border hover:bg-secondary/80'}`}
