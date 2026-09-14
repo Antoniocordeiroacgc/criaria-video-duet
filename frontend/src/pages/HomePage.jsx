@@ -166,7 +166,7 @@ export default function HomePage({ user }) {
                         </button>
                         <div className="border-t border-border" />
                         <button onClick={() => { setShowPicker(false); musicInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
-                          🎵 Música de fundo
+                        🎵 Música de fundo (MP3)
                         </button>
                         <div className="border-t border-border" />
                         <button onClick={() => { setShowPicker(false); setShowRefFilters(v => !v); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
