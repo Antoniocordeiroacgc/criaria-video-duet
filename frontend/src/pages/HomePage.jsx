@@ -156,7 +156,7 @@ export default function HomePage({ user }) {
                       <Upload className="w-4 h-4" />Upar
                     </button>
                     {showPicker && (
-                      <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-52">
+                      <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-52 max-h-56 overflow-y-auto">
                         <button onClick={() => { setShowPicker(false); videoInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
                           <Film className="w-4 h-4 text-primary" />Vídeo
                         </button>
