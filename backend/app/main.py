@@ -14,16 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.models import init_db
-from app.routes import upload, users, admin
-from app.storage import get_s3_client
 from app.routes import upload, users, admin, music
-app.include_router(music.router)
+from app.storage import get_s3_client
 
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title=settings.APP_NAME)
 
-# CORS: ajuste allow_origins para o domínio real em produção (não usar "*" com credentials)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,6 +33,7 @@ app.add_middleware(
 app.include_router(upload.router)
 app.include_router(users.router)
 app.include_router(admin.router)
+app.include_router(music.router)
 
 
 @app.on_event("startup")
@@ -45,7 +43,6 @@ def on_startup():
 
 
 def _ensure_bucket_exists():
-    """Cria o bucket automaticamente se ele não existir (essencial em dev com MinIO)."""
     try:
         client = get_s3_client()
         existing = [b["Name"] for b in client.list_buckets().get("Buckets", [])]
