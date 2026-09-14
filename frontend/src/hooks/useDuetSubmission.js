@@ -28,7 +28,11 @@ export function useDuetSubmission() {
     }, 2000);
   }, [stopPolling]);
 
-  const submitDuet = useCallback(async ({ referenceFiles, cameraBlob, layout = 'top_bottom', photoTimestamps = null, refStartTimestamp = null, musicFile = null }) => {
+  const submitDuet = useCallback(async ({
+    referenceFiles, cameraBlob, layout = 'top_bottom',
+    photoTimestamps = null, refStartTimestamp = null,
+    musicFile = null, selectedTrack = null,
+  }) => {
     setStatus('uploading');
     setProgress(0);
     setErrorMessage(null);
@@ -44,6 +48,7 @@ export function useDuetSubmission() {
       if (photoTimestamps && photoTimestamps.length > 0) formData.append('photo_timestamps', JSON.stringify(photoTimestamps));
       if (refStartTimestamp !== null) formData.append('ref_start_timestamp', String(refStartTimestamp));
       if (musicFile) formData.append('music_file', musicFile, musicFile.name);
+      if (selectedTrack) formData.append('music_track_id', String(selectedTrack.id));
 
       const res = await fetch(`${API_BASE_URL}/jobs`, { method: 'POST', headers: { 'ngrok-skip-browser-warning': 'true' }, body: formData });
       if (!res.ok) { const errBody = await res.json().catch(() => ({})); throw new Error(errBody.detail || 'Falha ao enviar arquivos para o servidor.'); }

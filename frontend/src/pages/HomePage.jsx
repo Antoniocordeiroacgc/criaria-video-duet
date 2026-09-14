@@ -8,6 +8,7 @@ import CameraRecorder from '@/components/CameraRecorder.jsx';
 import Teleprompter from '@/components/Teleprompter.jsx';
 import ContactModal from '@/components/ContactModal.jsx';
 import FilterSelector, { FILTERS } from '@/components/FilterSelector.jsx';
+import MusicGallery from '@/components/MusicGallery.jsx';
 
 export default function HomePage({ user }) {
   const referenceVideoRef = useRef(null);
@@ -32,11 +33,13 @@ export default function HomePage({ user }) {
   const [showTeleprompter, setShowTeleprompter] = useState(false);
   const [isRecordingActive, setIsRecordingActive] = useState(false);
 
+  // Música
+  const [musicFile, setMusicFile] = useState(null);
+  const [selectedTrack, setSelectedTrack] = useState(null);
+  const [showMusicGallery, setShowMusicGallery] = useState(false);
+
   const videoInputRef = useRef(null);
   const photoInputRef = useRef(null);
-  const musicInputRef = useRef(null);
-
-  const [musicFile, setMusicFile] = useState(null);
 
   const handleLogout = () => {
     localStorage.removeItem('duovideo_user');
@@ -78,14 +81,16 @@ export default function HomePage({ user }) {
     setShowPicker(false);
   };
 
-  const refFilterCss = FILTERS.find(f => f.id === refFilter)?.css || 'none';
-  const camFilterCss = FILTERS.find(f => f.id === camFilter)?.css || 'none';
-  const handleMusicUpload = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setMusicFile(file);
+  const handleTrackSelect = (track) => {
+    setSelectedTrack(track);
+    setMusicFile(null); // limpa arquivo local se escolher da galeria
   };
 
+  const refFilterCss = FILTERS.find(f => f.id === refFilter)?.css || 'none';
+  const camFilterCss = FILTERS.find(f => f.id === camFilter)?.css || 'none';
+
+  // Para o CameraRecorder: usa arquivo local OU track da galeria
+  const musicForDuet = musicFile || (selectedTrack ? { isTrack: true, trackId: selectedTrack.id, name: selectedTrack.title } : null);
   const referenceForCamera = mediaMode === 'photos' ? referencePhotos : referenceFile;
 
   return (
@@ -156,7 +161,7 @@ export default function HomePage({ user }) {
                       <Upload className="w-4 h-4" />Upar
                     </button>
                     {showPicker && (
-                      <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-52 max-h-56 overflow-y-auto">
+                      <div className="absolute right-0 top-10 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-52">
                         <button onClick={() => { setShowPicker(false); videoInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
                           <Film className="w-4 h-4 text-primary" />Vídeo
                         </button>
@@ -165,8 +170,8 @@ export default function HomePage({ user }) {
                           <Image className="w-4 h-4 text-primary" />Fotos (carrossel)
                         </button>
                         <div className="border-t border-border" />
-                        <button onClick={() => { setShowPicker(false); musicInputRef.current?.click(); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
-                        🎵 Música de fundo (MP3)
+                        <button onClick={() => { setShowPicker(false); setShowMusicGallery(true); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
+                          🎵 Música de fundo
                         </button>
                         <div className="border-t border-border" />
                         <button onClick={() => { setShowPicker(false); setShowRefFilters(v => !v); }} className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted text-sm text-foreground">
@@ -176,7 +181,6 @@ export default function HomePage({ user }) {
                     )}
                     <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
                     <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotosUpload} />
-                    <input ref={musicInputRef} type="file" accept="audio/*" className="hidden" onChange={handleMusicUpload} />
                   </div>
                 </div>
               </div>
@@ -201,7 +205,6 @@ export default function HomePage({ user }) {
 
               <div className="w-full max-w-2xl mx-auto flex flex-col gap-2">
                 <div className="relative">
-                  {/* Aplica filtro CSS no container da referência */}
                   <div style={{ filter: refFilterCss, transition: 'filter 0.3s ease' }}>
                     {mediaMode === 'video' && <VideoPlayer ref={referenceVideoRef} file={referenceFile} />}
                     {mediaMode === 'photos' && <PhotoCarousel ref={carouselRef} photos={referencePhotos} />}
@@ -224,7 +227,6 @@ export default function HomePage({ user }) {
                   )}
                 </div>
 
-                {/* Seletor de filtros — aparece quando ativado pelo menu Upar */}
                 {showRefFilters && mediaMode && (
                   <div className="bg-card border border-border rounded-xl p-3">
                     <p className="text-xs text-muted-foreground mb-2 font-medium">🎨 Filtros de cor</p>
@@ -243,11 +245,14 @@ export default function HomePage({ user }) {
                   </p>
                 )}
 
-                {musicFile && (
+                {/* Música selecionada */}
+                {(selectedTrack || musicFile) && (
                   <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2">
                     <span className="text-sm">🎵</span>
-                    <span className="text-xs text-foreground font-medium truncate flex-1">{musicFile.name}</span>
-                    <button onClick={() => setMusicFile(null)} className="text-muted-foreground hover:text-destructive text-xs">✕</button>
+                    <span className="text-xs text-foreground font-medium truncate flex-1">
+                      {selectedTrack ? selectedTrack.title : musicFile?.name}
+                    </span>
+                    <button onClick={() => { setSelectedTrack(null); setMusicFile(null); }} className="text-muted-foreground hover:text-destructive text-xs">✕</button>
                   </div>
                 )}
               </div>
@@ -272,6 +277,7 @@ export default function HomePage({ user }) {
                   referenceVideoRef={referenceVideoRef}
                   camFilterCss={camFilterCss}
                   musicFile={musicFile}
+                  selectedTrack={selectedTrack}
                   onRecordingStart={() => {
                     carouselRef.current?.startRecording();
                     if (teleprompterText.trim()) setShowTeleprompter(true);
@@ -307,6 +313,14 @@ export default function HomePage({ user }) {
       </div>
 
       <ContactModal isOpen={showContact} onClose={() => setShowContact(false)} user={user} />
+
+      {showMusicGallery && (
+        <MusicGallery
+          selectedId={selectedTrack?.id}
+          onSelect={handleTrackSelect}
+          onClose={() => setShowMusicGallery(false)}
+        />
+      )}
     </>
   );
 }

@@ -16,6 +16,8 @@ from app.config import settings
 from app.models import init_db
 from app.routes import upload, users, admin
 from app.storage import get_s3_client
+from app.routes import upload, users, admin, music
+app.include_router(music.router)
 
 logging.basicConfig(level=logging.INFO)
 

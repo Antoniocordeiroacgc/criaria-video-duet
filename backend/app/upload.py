@@ -39,6 +39,7 @@ async def create_duet_job(
     camera_video: UploadFile = File(...),
     reference_photos: list[UploadFile] = File(default=[]),
     music_file: UploadFile = File(default=None),
+    music_track_id: int | None = Form(default=None),
     layout: str = Form(default="top_bottom"),
     photo_timestamps: str | None = Form(default=None),
     ref_start_timestamp: float | None = Form(default=None),
@@ -108,6 +109,7 @@ async def create_duet_job(
         job.music_file_key = music_key
         job.photo_timestamps = photo_timestamps
         job.status = JobStatus.PENDING
+        job.music_track_id = music_track_id
         db.commit()
 
     except HTTPException:
