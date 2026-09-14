@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'video-duet-recorder-v1';
+const CACHE_NAME = 'video-duet-recorder-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
